@@ -1,0 +1,14 @@
+sqlmodel
+fastapi
+uvicorn
+mariadb
+pydantic
+pytest
+pymysql
+numpy
+passlib
+jwt
+python-jose
+pyjwt
+python-decouple
+python-multipart
