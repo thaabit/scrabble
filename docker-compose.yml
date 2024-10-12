@@ -1,0 +1,50 @@
+version: '3.3'
+services:
+  api:
+    container_name: scrabble-api
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FASTAPI_MODE: development
+      DB_NAME: scrabble
+      DB_USER: alpha
+      DB_PASS: alpha
+      DB_HOST: 'scrabble-db'
+    ports:
+      - '6000:6000'
+    networks:
+      - scrawl
+    volumes:
+      - ./api:/api
+  db:
+    image: mariadb:latest
+    container_name: scrabble-db
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    healthcheck:
+      test: "/usr/bin/mysql --user=alpha --password=alpha --execute \"SHOW DATABASES;\""
+      interval: 3s
+      timeout: 1s
+      retries: 5
+    environment:
+      MYSQL_DATABASE: scrabble
+      MYSQL_USER: alpha
+      MYSQL_PASSWORD: alpha
+      MYSQL_ROOT_PASSWORD: asdf
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_PORT: 3306
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d
+    networks:
+      - scrawl
+networks:
+  scrawl:
+    driver: bridge
+volumes:
+    db:
+    api:
+    cron:
