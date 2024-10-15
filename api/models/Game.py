@@ -11,7 +11,7 @@ import numpy as np
 if TYPE_CHECKING:
     from .models.Move import Move
 
-default_letters = 'AAAAAAAAABBCCDDDDEEEEEEEEEEEEFFGGGHHIIIIIIIIIJKLLLLMMNNNNNNOOOOOOOOPPQRRRRRRSSSSTTTTTTUUUUVVWWXYYZ??'
+bag_start = 'AAAAAAAAABBCCDDDDEEEEEEEEEEEEFFGGGHHIIIIIIIIIJKLLLLMMNNNNNNOOOOOOOOPPQRRRRRRSSSSTTTTTTUUUUVVWWXYYZ??'
 value_of_letters = {
     "?": 0,
     "AEILNORSTU":1,
@@ -37,12 +37,12 @@ MAX_ROW = 14
 
 class GameBase(SQLModelBase):
     user_one: str = Field(foreign_key="user.username")
-    user_one_letters: str | None = Field(default='')
+    tray_one: str | None = Field(default='')
     user_two: str = Field(foreign_key="user.username")
-    user_two_letters: str | None = Field(default='')
+    tray_two: str | None = Field(default='')
     created: datetime | None = Field(default_factory=datetime.utcnow)
     finished: datetime | None = Field(default='0000-00-00')
-    letters: str | None = Field(default=default_letters)
+    bag: str | None = Field(default=bag_start)
 
 class Game(GameBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -50,16 +50,23 @@ class Game(GameBase, table=True):
 
     def draw(self):
 
+        # check for endgame
+        no_more_letters = (self.tray_one == '' or self.tray_two == '') and self.bag == ''
+        three_passes = len(self.moves) >= 3 and self.moves[-3].type == 'pass' and self.moves[-2].type == 'pass' and self.moves[-1] == 'pass'
+        if no_more_letters or three_passes:
+            self.finished = datetime.utcnow()
+            return
+
         # randomize list of letters
-        self.letters = ''.join(random.sample(self.letters,len(self.letters)))
+        self.bag = ''.join(random.sample(self.bag,len(self.bag)))
 
-        idx1 = 7 - len(self.user_one_letters)
-        self.user_one_letters += self.letters[0:idx1]
-        self.letters = self.letters[idx1:]
+        idx1 = 7 - len(self.tray_one)
+        self.tray_one += self.bag[0:idx1]
+        self.bag = self.bag[idx1:]
 
-        idx2 = 7 - len(self.user_two_letters)
-        self.user_two_letters += self.letters[0:idx2]
-        self.letters = self.letters[idx2:]
+        idx2 = 7 - len(self.tray_two)
+        self.tray_two += self.bag[0:idx2]
+        self.bag = self.bag[idx2:]
 
         return self
 
@@ -70,27 +77,37 @@ class Game(GameBase, table=True):
         if not [m.type == 'play' for m in moves]: return True
         return False
 
-    def valid_move(self, move, auth_user):
+    def score(self, user):
+        #return sum([int(x.score) for x in list(filter(lambda x: x.user == user, self.moves))])
+        return sum([int(x.score) for x in self.moves if x.user == user and x.type == 'play'])
 
-        play_tiles = move.tiles()
-        play_letters = [x[0] for x in play_tiles]
-        play_coords = [x[1] for x in play_tiles]
+    def valid_move(self, move, username):
+
+        # check for game over
+        if self.finished != '0000-00-00': raise Exception("It's game over, man")
+
+        # must be my turn
+        if self.whose_turn() != username: raise Exception("It is not your turn")
+        tray = self.trays()[username]
+
         if move.type == 'play':
 
-            # must be my turn
-            if self.whose_turn() != auth_user: raise Exception("It is not your turn")
+            play_tiles = move.tiles()
+            play_letters = [x[0] for x in play_tiles]
+            play_coords = [x[1] for x in play_tiles]
+
             # first move has to include middle
             has_middle = (7,7) in play_coords
             first_move = self.first_move()
             if not has_middle and first_move: raise Exception("First move must include middle space")
 
             # letters must be in the tray
-            cur_letters = [x for x in (self.user_one_letters if auth_user == self.user_one else self.user_two_letters)]
+            cur_letters = [x for x in tray]
             for l in play_letters:
                 if len(l) > 2 or len(l) < 1: raise Exception("{l} is an invalid letter option")
                 if len(l) == 2: l = l[0:1] # blank
                 if not re.match(r"[A-Z?]", l): raise Exception("{l} is not a valid letter")
-                if l not in cur_letters: raise Exception(f"{l} is not in the tray of {auth_user}")
+                if l not in cur_letters: raise Exception(f"{l} is not in the tray of {username}")
                 cur_letters.remove(l)
 
             # must be in an empty space on the board
@@ -164,13 +181,32 @@ class Game(GameBase, table=True):
             move.score = score
 
             # cleanup, remove used tiles and redraw
-            if auth_user == self.user_one:
-                self.user_one_letters = "".join(cur_letters)
-            else:
-                self.user_two_letters = "".join(cur_letters)
+            self.update_tray(username, cur_letters)
             self.draw()
+
+        elif move.type == 'pass':
+            move.data = ''
+        elif move.type == 'exchange':
+            cur_letters = [x for x in tray]
+            for l in move.data:
+                if not re.match(r"[A-Z?]", l): raise Exception("{l} is not a valid letter")
+                if l not in cur_letters: raise Exception(f"{l} is not in the tray of {username}")
+                cur_letters.remove(l)
+
+            # cleanup, remove used tiles and redraw
+            self.update_tray(username, cur_letters)
+            self.draw()
+            self.bag += move.data
         #raise Exception("passed")
         return
+
+    def update_tray(self, username, letters):
+        if isinstance(letters, list): letters = "".join(cur_letters)
+        if username == self.user_one:
+            self.tray_one = letters
+        elif username == self.user_two:
+            self.tray_two = letters
+
 
     def get_up_tiles(self, coords, board_tiles, move_tiles):
         row, col, tiles = coords[0] - 1, coords[1], []
@@ -262,8 +298,17 @@ class Game(GameBase, table=True):
 
         return data
 
+    def trays(self):
+        return {
+            self.user_one: self.tray_one,
+            self.user_two: self.tray_two
+        }
+
+    def tray(self, username):
+        trays = self.trays()
+        return trays[username] if username in trays else None
+
 class GameCreate(GameBase):
     user_one: str
     user_two: str
-
 
