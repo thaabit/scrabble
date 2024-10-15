@@ -1,6 +1,10 @@
+from typing import TYPE_CHECKING
 from datetime import datetime
-from sqlmodel import Field
+from sqlmodel import Field, or_, select
 from models.SQLModelBase import SQLModelBase
+
+if TYPE_CHECKING:
+    from .models.Game import Game
 
 class UserBase(SQLModelBase):
     username: str = Field(unique=True)
