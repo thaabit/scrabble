@@ -4,30 +4,54 @@ import sqlalchemy
 import sys
 import bcrypt
 
-
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import create_engine, Session, select, or_
+from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import create_engine, Session, select, or_, and_, SQLModel
 from typing import Annotated
 
-from models.Game import Game, GameCreate
+from models.Game import Game
+from models.GameUser import GameUser
 from models.User import User, UserCreate, UserUpdate
 from models.Move import Move
-from auth_handler import sign_jwt, oauth2_scheme, get_current_user, create_access_token
+from auth_handler import sign_jwt, oauth2_scheme, get_authed_username, create_access_token
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+    "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 mdb_url = "mariadb+pymysql://{}:{}@{}/{}?charset=utf8mb4".format(os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST"), os.getenv("DB_NAME"))
 engine = create_engine(mdb_url)
 
-@app.post("/login")
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+class LoginValidation(SQLModel):
+    username: str
+    password: str
+
+def user_by_username(username):
     with Session(engine) as session:
-        query = select(User).where(User.username == form_data.username)
+        query = select(User).where(User.username == username)
+        user = session.exec(query).one()
+        return user
+
+@app.post("/login")
+async def login_for_access_token(json: LoginValidation):
+    with Session(engine) as session:
+        query = select(User).where(User.username == json.username)
         try:
             user = session.exec(query).one()
-            if user is None or not bcrypt.checkpw(bytes(form_data.password,'utf-8'), bytes(user.pwhash, 'utf-8')):
+            if user is None or not bcrypt.checkpw(bytes(json.password,'utf-8'), bytes(user.pwhash, 'utf-8')):
                 raise HTTPException(status_code=400, detail="Incorrect username or password")
         except Exception as e:
             print(e.args)
@@ -35,9 +59,8 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         access_token = create_access_token(data={"sub": user.username})
         return {"access_token": access_token, "token_type": "bearer"}
 
-
 @app.get("/protected")
-async def protected_route(username: str = Depends(get_current_user)):
+async def protected_route(username: str = Depends(get_authed_username)):
     return {"message": f"Hello, {username}! This is a protected resource."}
 
 @app.get("/items/")
@@ -53,35 +76,46 @@ async def health():
     return {"success": 1}
 
 @app.get("/game/{id}")
-def read_game(id: int, username: str = Depends(get_current_user)):
+def read_game(id: int, auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         game = session.get(Game, id)
+        tray = session.exec(select(GameUser).where(and_(GameUser.game_id == id, GameUser.username == auth_username))).first()
         if not game:
             raise HTTPException(status_code=404, detail="Game not found")
-        return game
+        return {
+            "game": game,
+            "tray": list(tray.tray),
+            "moves": game.hashedMoves(),
+            "scores": game.scores(),
+            "whose_turn": game.whose_turn(),
+            "game_over": game.game_over(),
+        }
 
+class GameValidation(SQLModel):
+    opponent: str
 @app.post("/game")
-def create_game(opponent: str, username: str = Depends(get_current_user)):
+def create_game(args: GameValidation, username: str = Depends(get_authed_username)):
     with Session(engine) as session:
-        game = Game.model_validate({
-            'user_one': username,
-            'user_two': opponent,
-        })
-        game.draw()
+        game = Game()
         session.add(game)
+        session.commit()
+        session.refresh(game)
+        user_one = GameUser.model_validate({ "username": username, "game_id": game.id })
+        session.add(user_one)
+        user_two = GameUser.model_validate({ "username": args.opponent, "game_id": game.id })
+        session.add(user_two)
+        game.draw()
         session.commit()
         session.refresh(game)
         return game
 
 @app.get("/games")
-def list_games(auth_username: str = Depends(get_current_user)):
+def list_games(auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         try:
-            statement = select(Game).where(or_(Game.user_one == auth_username, Game.user_two == auth_username))
-            results = session.exec(statement)
-            return results.all()
-            #user = get_user(auth_username)
-            #return user.games()
+            auth_user = user_by_username(auth_username)
+            session.add(auth_user)
+            return auth_user.trays
         except Exception as e:
             raise HTTPException(status_code=400, detail=e.args)
 
@@ -103,31 +137,40 @@ def create_user(user: UserCreate):
             session.add(db_user)
             session.commit()
             session.refresh(db_user)
-            return db_user
+            access_token = create_access_token(data={"sub": user.username})
+            return_hash = {"username": db_user.username, "access_token": access_token, "token_type": "bearer"}
+            print(return_hash)
+            return return_hash
         except sqlalchemy.exc.IntegrityError as e:
-            raise HTTPException(status_code=422, detail=e.args)
+            print(e)
+            raise HTTPException(status_code=422, detail="Username taken")
 
 @app.get("/users")
 def list_users():
     with Session(engine) as session:
         users = session.exec(select(User)).all()
-        return users
+        return [user.username for user in users]
 
 @app.post("/move")
-def add_move(move: Move, auth_username: str = Depends(get_current_user)):
-    move.user = auth_username
+def add_move(move: Move, auth_username: str = Depends(get_authed_username)):
+    move.username = auth_username
+    move.type = move.type if move.type else "play"
     with Session(engine) as session:
         game = session.get(Game, move.game_id)
+        game_user = session.exec(select(GameUser).where(and_(GameUser.game_id == move.game_id, GameUser.username == auth_username)))
         if not game: raise HTTPException(status_code=404, detail='Game not found')
         try:
             game.valid_move(move, auth_username)
         except Exception as e:
+            print(e)
             raise HTTPException(status_code=422, detail=e.args)
         try:
+            print(move)
             session.add(move)
             session.commit()
             session.refresh(move)
         except Exception as e:
+            print(e, e.args)
             raise HTTPException(status_code=422, detail=e.args)
         return move
 
@@ -143,12 +186,16 @@ def get_board(game_id: int):
         s2 = game.score(game.user_two)
         return f"{game.user_one}: {s1}\n{game.user_two}: {s2}\ntiles left: {len(game.bag)}\n{b}"
 
-@app.get("/tray")
-def get_tray(game_id: int, auth_username: str = Depends(get_current_user)):
+@app.get("/tray/{game_id}")
+def get_tray(game_id: int, auth_username: str = Depends(get_authed_username)):
+    print(game_id)
     with Session(engine) as session:
         game = session.get(Game, game_id)
         if not game: raise HTTPException(status_code=404, detail='Game not found')
-        return game.tray(auth_username)
+        return {
+            "tray": game.tray(auth_username),
+            "game_over": game.game_over()
+        }
 
 def get_user(username):
     with Session(engine) as session:

@@ -16,7 +16,7 @@ class MoveType(StrEnum):
 class Move(SQLModelBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     game_id: int = Field(foreign_key="game.id")
-    user: str = Field(foreign_key="user.username")
+    username: str = Field(foreign_key="user.username")
     type: str | None = Field(default='play')
     data: str
     score: int | None = 0
