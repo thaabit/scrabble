@@ -22,8 +22,8 @@ The easiest way is to use [docker-compose](https://docs.docker.com/compose/insta
 You will need [Docker](https://docs.docker.com/engine/install/)
 
 Once you have those installed, you can get the api and database up and running with two commands:
-    docker-compose build
-    docker-compose up
+    docker compose build
+    docker compose up
 
 The api should be available at http://localhost:6000/
 
@@ -40,10 +40,10 @@ The api should be available at http://localhost:6000/
     docker exec -it scrabble-api pip freeze > /api/requirements.txt
 
     # attach to the database
-    docker exec -it scrabble-db mysql -ualpha -palpha scrabble
+    docker exec -it scrabble-db mariadb -ualpha -palpha scrabble
 
     # dump database
-    docker exec -it scrabble-db mysqldump  -uroot -pasdf scrabble -r docker-entrypoint-initdb.d/dump.sql
+    docker exec -it scrabble-db mariadb-dump -uroot -pasdf scrabble -r docker-entrypoint-initdb.d/dump.sql
 
     # reset volumes in order to reinitialized the db
     docker-compose down -v

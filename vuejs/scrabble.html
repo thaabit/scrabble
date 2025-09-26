@@ -1,0 +1,371 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrabble Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(15, 40px);
+            gap: 2px;
+            background-color: #8b4513;
+            padding: 10px;
+            border: 5px solid #654321;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            background-color: #f5deb3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .cell.tile {
+            background-color: #fffacd;
+            border: 1px solid #000;
+        }
+        .cell.double-letter {
+            background-color: #add8e6;
+        }
+        .cell.triple-letter {
+            background-color: #87ceeb;
+        }
+        .cell.double-word {
+            background-color: #ffb6c1;
+        }
+        .cell.triple-word {
+            background-color: #ff4040;
+        }
+        .cell.star {
+            background-color: #ff69b4;
+        }
+        #rack {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            background-color: #d2b48c;
+            padding: 10px;
+            border: 2px solid #654321;
+        }
+        .tile {
+            width: 40px;
+            height: 40px;
+            background-color: #fffacd;
+            border: 1px solid #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: grab;
+        }
+        .tile.dragging {
+            opacity: 0.5;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4682b4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #4169e1;
+        }
+        #score {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #message {
+            font-size: 18px;
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score">Score: 0</div>
+        <div id="board"></div>
+        <div id="rack"></div>
+        <div id="controls">
+            <button id="submit">Submit Word</button>
+            <button id="reset">Reset Board</button>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Scrabble letter values
+        const letterValues = {
+            'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2, 'H': 4, 'I': 1,
+            'J': 8, 'K': 5, 'L': 1, 'M': 3, 'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1,
+            'S': 1, 'T': 1, 'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10
+        };
+
+        // Simple dictionary for word validation (expandable)
+        const dictionary = ['hello', 'world', 'scrabble', 'game', 'play', 'word', 'test'];
+
+        // Board setup
+        const boardSize = 15;
+        const board = Array(boardSize).fill().map(() => Array(boardSize).fill(null));
+        let score = 0;
+        let currentWord = [];
+        let placedTiles = [];
+
+        // Special squares
+        const specialSquares = {
+            doubleLetter: [[0, 3], [0, 11], [2, 6], [2, 8], [3, 0], [3, 7], [3, 14], [6, 2], [6, 6], [6, 8], [6, 12], [7, 3], [7, 11], [8, 2], [8, 6], [8, 8], [8, 12], [11, 0], [11, 7], [11, 14], [12, 6], [12, 8], [14, 3], [14, 11]],
+            tripleLetter: [[1, 5], [1, 9], [5, 1], [5, 5], [5, 9], [5, 13], [9, 1], [9, 5], [9, 9], [9, 13], [13, 5], [13, 9]],
+            doubleWord: [[1, 1], [2, 2], [3, 3], [4, 4], [10, 10], [11, 11], [12, 12], [13, 13], [1, 13], [2, 12], [3, 11], [4, 10], [10, 4], [11, 3], [12, 2], [13, 1]],
+            tripleWord: [[0, 0], [0, 7], [0, 14], [7, 0], [7, 14], [14, 0], [14, 7], [14, 14]],
+            star: [[7, 7]]
+        };
+
+        // Initialize board
+        const boardElement = document.getElementById('board');
+        for (let i = 0; i < boardSize; i++) {
+            for (let j = 0; j < boardSize; j++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+
+                // Assign special squares
+                if (specialSquares.doubleLetter.some(([r, c]) => r === i && c === j)) {
+                    cell.classList.add('double-letter');
+                } else if (specialSquares.tripleLetter.some(([r, c]) => r === i && c === j)) {
+                    cell.classList.add('triple-letter');
+                } else if (specialSquares.doubleWord.some(([r, c]) => r === i && c === j)) {
+                    cell.classList.add('double-word');
+                } else if (specialSquares.tripleWord.some(([r, c]) => r === i && c === j)) {
+                    cell.classList.add('triple-word');
+                } else if (specialSquares.star.some(([r, c]) => r === i && c === j)) {
+                    cell.classList.add('star');
+                }
+
+                cell.addEventListener('dragover', (e) => e.preventDefault());
+                cell.addEventListener('drop', handleDrop);
+                boardElement.appendChild(cell);
+            }
+        }
+
+        // Initialize player rack
+        const rackElement = document.getElementById('rack');
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        const initialTiles = Array(7).fill().map(() => letters[Math.floor(Math.random() * letters.length)]);
+        initialTiles.forEach(letter => {
+            const tile = document.createElement('div');
+            tile.classList.add('tile');
+            tile.textContent = letter;
+            tile.draggable = true;
+            tile.addEventListener('dragstart', handleDragStart);
+            rackElement.appendChild(tile);
+        });
+
+        // Drag and drop handlers
+        function handleDragStart(e) {
+            e.target.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', e.target.textContent);
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const letter = e.dataTransfer.getData('text');
+            const cell = e.target;
+            const row = parseInt(cell.dataset.row);
+            const col = parseInt(cell.dataset.col);
+
+            if (!board[row][col] && !cell.classList.contains('tile')) {
+                cell.textContent = letter;
+                cell.classList.add('tile');
+                board[row][col] = letter;
+                placedTiles.push({ row, col, letter });
+                const tile = document.querySelector(`#rack .tile:not(.used)`);
+                if (tile) {
+                    tile.classList.add('used');
+                    tile.draggable = false;
+                }
+            }
+        }
+
+        // Submit word
+        document.getElementById('submit').addEventListener('click', () => {
+            currentWord = [];
+            let isHorizontal = true;
+            let isVertical = true;
+
+            // Determine word orientation
+            if (placedTiles.length > 1) {
+                const rows = placedTiles.map(t => t.row);
+                const cols = placedTiles.map(t => t.col);
+                isHorizontal = rows.every(r => r === rows[0]);
+                isVertical = cols.every(c => c === cols[0]);
+            }
+
+            if (!isHorizontal && !isVertical) {
+                document.getElementById('message').textContent = 'Invalid word placement: Must be in a straight line.';
+                return;
+            }
+
+            // Collect word
+            if (isHorizontal) {
+                const row = placedTiles[0].row;
+                const minCol = Math.min(...placedTiles.map(t => t.col));
+                const maxCol = Math.max(...placedTiles.map(t => t.col));
+                for (let col = minCol; col <= maxCol; col++) {
+                    if (board[row][col]) {
+                        currentWord.push({ row, col, letter: board[row][col] });
+                    } else {
+                        document.getElementById('message').textContent = 'Invalid word: Gaps are not allowed.';
+                        return;
+                    }
+                }
+            } else if (isVertical) {
+                const col = placedTiles[0].col;
+                const minRow = Math.min(...placedTiles.map(t => t.row));
+                const maxRow = Math.max(...placedTiles.map(t => t.row));
+                for (let row = minRow; row <= maxRow; row++) {
+                    if (board[row][col]) {
+                        currentWord.push({ row, col, letter: board[row][col] });
+                    } else {
+                        document.getElementById('message').textContent = 'Invalid word: Gaps are not allowed.';
+                        return;
+                    }
+                }
+            }
+
+            const word = currentWord.map(t => t.letter).join('');
+            if (dictionary.includes(word.toLowerCase())) {
+                let wordScore = 0;
+                let wordMultiplier = 1;
+
+                currentWord.forEach(({ row, col, letter }) => {
+                    let letterScore = letterValues[letter];
+                    const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+
+                    if (placedTiles.some(t => t.row === row && t.col === col)) {
+                        if (cell.classList.contains('double-letter')) {
+                            letterScore *= 2;
+                        } else if (cell.classList.contains('triple-letter')) {
+                            letterScore *= 3;
+                        } else if (cell.classList.contains('double-word')) {
+                            wordMultiplier *= 2;
+                        } else if (cell.classList.contains('triple-word') || cell.classList.contains('star')) {
+                            wordMultiplier *= 3;
+                        }
+                    }
+
+                    wordScore += letterScore;
+                });
+
+                wordScore *= wordMultiplier;
+                score += wordScore;
+                document.getElementById('score').textContent = `Score: ${score}`;
+                document.getElementById('message').textContent = `Valid word "${word}" scored ${wordScore} points!`;
+
+                // Refill rack
+                const usedTiles = document.querySelectorAll('#rack .tile.used');
+                usedTiles.forEach(tile => tile.remove());
+                const newTiles = Array(usedTiles.length).fill().map(() => letters[Math.floor(Math.random() * letters.length)]);
+                newTiles.forEach(letter => {
+                    const tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    tile.textContent = letter;
+                    tile.draggable = true;
+                    tile.addEventListener('dragstart', handleDragStart);
+                    rackElement.appendChild(tile);
+                });
+
+                placedTiles = [];
+            } else {
+                document.getElementById('message').textContent = `Invalid word: "${word}" is not in the dictionary.`;
+            }
+        });
+
+        // Reset board
+        document.getElementById('reset').addEventListener('click', () => {
+            placedTiles.forEach(({ row, col }) => {
+                board[row][col] = null;
+                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                cell.textContent = '';
+                cell.classList.remove('tile');
+            });
+            placedTiles = [];
+            currentWord = [];
+            document.getElementById('message').textContent = '';
+            const usedTiles = document.querySelectorAll('#rack .tile.used');
+            usedTiles.forEach(tile => {
+                tile.classList.remove('used');
+                tile.draggable = true;
+            });
+        });
+    </script>
+</body>
+</html>

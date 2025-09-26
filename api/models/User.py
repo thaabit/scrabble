@@ -1,6 +1,6 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from datetime import datetime
-from sqlmodel import Field, or_, select
+from sqlmodel import Field, or_, select, Relationship
 from models.SQLModelBase import SQLModelBase
 
 if TYPE_CHECKING:
@@ -13,6 +13,7 @@ class UserBase(SQLModelBase):
 class User(UserBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     pwhash: str = Field()
+    trays: List["GameUser"] = Relationship()
 
 class UserCreate(UserBase):
     password: str

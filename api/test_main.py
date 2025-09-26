@@ -1,5 +1,7 @@
+import sys, os
 from fastapi.testclient import TestClient
 
+sys.path.append(os.getcwd())
 from main import app
 
 client = TestClient(app)
