@@ -21,12 +21,12 @@ export const router = createRouter({
     ]
 });
 
+router.beforeEach(to => {
     // redirect to login page if not logged in and trying to access a restricted page
     const publicPages = ['/login','/','/signup'];
     const authRequired = !publicPages.includes(to.path);
     const auth = useAuthStore();
     if (authRequired && !auth.token) {
-        console.log("need to login")
         auth.returnUrl = to.fullPath;
         return '/login';
     }
