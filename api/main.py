@@ -4,7 +4,7 @@ import sqlalchemy
 import sys
 import bcrypt
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +18,7 @@ from models.Move import Move
 from auth_handler import sign_jwt, oauth2_scheme, get_authed_username, create_access_token
 
 app = FastAPI()
+router = APIRouter(prefix="/api")
 
 origins = [
     "http://localhost:5173",
@@ -45,7 +46,7 @@ def user_by_username(username):
         user = session.exec(query).one()
         return user
 
-@app.post("/login")
+@router.post("/login")
 async def login_for_access_token(json: LoginValidation):
     with Session(engine) as session:
         query = select(User).where(User.username == json.username)
@@ -59,23 +60,23 @@ async def login_for_access_token(json: LoginValidation):
         access_token = create_access_token(data={"sub": user.username})
         return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/protected")
+@router.get("/protected")
 async def protected_route(username: str = Depends(get_authed_username)):
     return {"message": f"Hello, {username}! This is a protected resource."}
 
-@app.get("/items/")
+@router.get("/items/")
 async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
     return {"token": token}
 
-@app.get("/")
+@router.get("/")
 async def hello():
     return {"success": 1}
 
-@app.get("/health")
+@router.get("/health")
 async def health():
     return {"success": 1}
 
-@app.get("/game/{id}")
+@router.get("/game/{id}")
 def read_game(id: int, auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         game = session.get(Game, id)
@@ -93,7 +94,7 @@ def read_game(id: int, auth_username: str = Depends(get_authed_username)):
 
 class GameValidation(SQLModel):
     opponent: str
-@app.post("/game")
+@router.post("/game")
 def create_game(args: GameValidation, username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         game = Game()
@@ -109,7 +110,7 @@ def create_game(args: GameValidation, username: str = Depends(get_authed_usernam
         session.refresh(game)
         return game
 
-@app.get("/games")
+@router.get("/games")
 def list_games(auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         try:
@@ -119,7 +120,7 @@ def list_games(auth_username: str = Depends(get_authed_username)):
         except Exception as e:
             raise HTTPException(status_code=400, detail=e.args)
 
-@app.get("/user/{id}")
+@router.get("/user/{id}")
 def read_user(id: str):
     with Session(engine) as session:
         user = session.get(User, id)
@@ -127,7 +128,7 @@ def read_user(id: str):
             raise HTTPException(status_code=404, detail="User not found")
         return user
 
-@app.post("/user")
+@router.post("/user")
 def create_user(user: UserCreate):
     pwhash = bcrypt.hashpw(bytes(user.password, 'utf-8'), bcrypt.gensalt(rounds=12))
     with Session(engine) as session:
@@ -144,13 +145,13 @@ def create_user(user: UserCreate):
             print(e)
             raise HTTPException(status_code=422, detail="Username taken")
 
-@app.get("/users")
+@router.get("/users")
 def list_users():
     with Session(engine) as session:
         users = session.exec(select(User)).all()
         return [user.username for user in users]
 
-@app.post("/move")
+@router.post("/move")
 def add_move(move: Move, auth_username: str = Depends(get_authed_username)):
     move.username = auth_username
     move.type = move.type if move.type else "play"
@@ -172,7 +173,7 @@ def add_move(move: Move, auth_username: str = Depends(get_authed_username)):
             raise HTTPException(status_code=422, detail=e.args)
         return move
 
-@app.get("/board/{game_id}")
+@router.get("/board/{game_id}")
 def get_board(game_id: int):
     with Session(engine) as session:
         game = session.get(Game, game_id)
@@ -184,7 +185,7 @@ def get_board(game_id: int):
         s2 = game.score(game.user_two)
         return f"{game.user_one}: {s1}\n{game.user_two}: {s2}\ntiles left: {len(game.bag)}\n{b}"
 
-@app.get("/word")
+@router.get("/word")
 def get_tray(words: list[str] = Query(default=...)):
     with Session(engine) as session:
         qs = ",".join("?"*len(words))
@@ -193,7 +194,7 @@ def get_tray(words: list[str] = Query(default=...)):
         invalid = (list(set(words) - set(valid)))
         return { "invalid": invalid }
 
-@app.get("/tray/{game_id}")
+@router.get("/tray/{game_id}")
 def get_tray(game_id: int, auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         game = session.get(Game, game_id)
@@ -208,3 +209,5 @@ def get_user(username):
         statement = select(User).where(User.username == username)
         results = session.exec(statement)
         return results.first()
+
+app.include_router(router)
