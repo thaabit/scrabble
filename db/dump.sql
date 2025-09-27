@@ -29,7 +29,7 @@ CREATE TABLE `game` (
   `finished` datetime DEFAULT NULL,
   `bag` varchar(128) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -41,7 +41,8 @@ LOCK TABLES `game` WRITE;
 set autocommit=0;
 INSERT INTO `game` VALUES
 (10,'2025-09-23 22:20:33','2025-09-26 01:07:17',''),
-(11,'2025-09-26 01:22:11','0000-00-00 00:00:00','ERPNRNALSEIEPIFNDILESVOERAJAGREYNO');
+(11,'2025-09-26 01:22:11','0000-00-00 00:00:00','ENAASIIINEEFNLOSADJRNERGRVYLEE'),
+(12,'2025-09-26 17:26:37','0000-00-00 00:00:00','INUTEEDIPSAAWILITRR?EBLVSNECTIKETXTNINFOVEEGODOEONAOAOL?BYPOAIAGDNZAAQLEIW');
 /*!40000 ALTER TABLE `game` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -63,7 +64,7 @@ CREATE TABLE `game_user` (
   KEY `game_id` (`game_id`),
   CONSTRAINT `game_user_ibfk_1` FOREIGN KEY (`username`) REFERENCES `user` (`username`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `game_user_ibfk_2` FOREIGN KEY (`game_id`) REFERENCES `game` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -76,8 +77,10 @@ set autocommit=0;
 INSERT INTO `game_user` VALUES
 (7,10,'asdf',''),
 (8,10,'asdf2','SN'),
-(9,11,'asdf2','TAMEOGH'),
-(10,11,'asdf','?UAAVTW');
+(9,11,'asdf2','TEHOPPR'),
+(10,11,'asdf','?UAAVTW'),
+(11,12,'asdf2','SRHUEUJ'),
+(12,12,'asdf','OTSDRUM');
 /*!40000 ALTER TABLE `game_user` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -102,7 +105,7 @@ CREATE TABLE `move` (
   KEY `username` (`username`),
   CONSTRAINT `move_ibfk_1` FOREIGN KEY (`game_id`) REFERENCES `game` (`id`) ON DELETE CASCADE,
   CONSTRAINT `move_ibfk_2` FOREIGN KEY (`username`) REFERENCES `user` (`username`) ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=68 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -170,7 +173,12 @@ INSERT INTO `move` VALUES
 (55,11,'asdf2','exchange','SEI',0,NULL),
 (56,11,'asdf','exchange','',0,NULL),
 (57,11,'asdf2','exchange','SEN',0,NULL),
-(58,11,'asdf','exchange','GREYNO',0,NULL);
+(58,11,'asdf','exchange','GREYNO',0,NULL),
+(59,11,'asdf2','play','A:10:0::M:11:0::O:12:0::G:14:0',33,NULL),
+(64,12,'asdf2','exchange','JKX',0,NULL),
+(65,12,'asdf','play','Y:7:9::R:7:8::C:7:7',22,NULL),
+(66,12,'asdf2','play','R:8:7::A:9:7::G:10:7',7,NULL),
+(67,12,'asdf','exchange','EIW',0,NULL);
 /*!40000 ALTER TABLE `move` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -189,7 +197,7 @@ CREATE TABLE `user` (
   `created` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -205,7 +213,10 @@ INSERT INTO `user` VALUES
 (4,'asdf3','$2b$12$Wt5oW/qL.01DQ/Ta0RZJmuOddZzCaXxo2fz9BZEWkxCCD1CraUJzq','2025-09-22 19:56:04'),
 (6,'asdf4','$2b$12$95sHmhq6Hv2gw/gdhQEDBekKjB8WogwIZPNuGsi165xdWV7nUGcQi','2025-09-22 19:56:58'),
 (8,'asdf5','$2b$12$TLasFOJst2gcwc.Vq2GqWuzhfsV/ve88OrULZWxqyRYmJadlE.NS.','2025-09-22 19:58:00'),
-(29,'asdf6','$2b$12$YsxSR4Tas8F.b36FEyQrP.JoSDYgIKNgAuuCXHLeny8D6mjUANKx6','2025-09-22 21:02:05');
+(29,'asdf6','$2b$12$YsxSR4Tas8F.b36FEyQrP.JoSDYgIKNgAuuCXHLeny8D6mjUANKx6','2025-09-22 21:02:05'),
+(30,'dddd','$2b$12$Cge3kgG6eWtTX3gX6KSsGustPRdYV5evZfbDP6V7EiM//piboCvAS','2025-09-26 22:42:42'),
+(31,'eeee','$2b$12$ppP8.e9qC1v5VNV2fC7ji.2aB.EzJjdOLWv1a2pkszfmyoqBDAr0e','2025-09-26 22:49:37'),
+(33,'ffff','$2b$12$Ro68ygqmh7ve0Aq3s30yP.oGYcHir.2jOpD4cPzZ0ijFMXkYIPfLy','2025-09-26 22:50:23');
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -196847,4 +196858,4 @@ commit;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2025-09-26 15:08:11
+-- Dump completed on 2025-09-27 20:14:12
