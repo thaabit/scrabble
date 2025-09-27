@@ -19,7 +19,8 @@
     const rackRow = 16
     const rackStart = 5
     const middle = 8
-    const validWords = ref([])
+    const playedWords = ref({})
+    const invalidWords = ref([])
     const playScore = ref(0)
     const gameOverMan = ref(false)
     const letterPoints = {
@@ -34,21 +35,20 @@
     const exchangeNo = ref([])
     const exchangeYes = ref([])
 
+    let interval
     onMounted(() => {
         initializeBoard()
         refreshGame()
-        const interval = setInterval(checkRefreshGame, 1000*10)
+        interval = setInterval(checkRefreshGame, 1000*10)
     })
 
     onUnmounted(() => {
-        console.log('cleared interval', interval);
         clearInterval(interval);
     });
 
     function checkRefreshGame() {
         if (whose_turn.value !== auth_username) {
-            //console.log("refreshing")
-            //refreshGame()
+            refreshGame()
         }
     }
 
@@ -61,10 +61,9 @@
     }
 
     function refreshGame() {
-        validWords.value = []
+        playedWords.value = {}
         playScore.value = 0
         http.get('/game/' + route.params.id).then(response => {
-            console.log(response.data)
             let rack_start = 5
             rackLetters.value = []
             response.data.tray.forEach(letter => {
@@ -75,7 +74,6 @@
                 })
                 exchangeNo.value.push(letter)
             })
-            console.log(exchangeNo.value)
             response.data.moves.forEach(move => {
                 playedTiles.value.push(...move)
                 move.forEach(tile => {
@@ -99,7 +97,6 @@
     }
 
     function submitPlay(moveType="play", move) {
-        console.log(moveType)
         let body = {
             game_id: route.params.id,
             type: moveType
@@ -117,7 +114,6 @@
             }).join('::')
         }
         http.post('/move', body).then(response => {
-            console.log(response)
             refreshGame()
         })
     }
@@ -148,6 +144,15 @@
         return Array.from(cols);
     }
 
+    function validateWords(words) {
+        if (!words.length) return;
+        const query_string = words.map(word => `words=${word}`).join('&')
+        http.get(`/word?${query_string}`).then(response => {
+            invalidWords.value = response.data.invalid
+            if (invalidWords.value.length) validPlay.value = false
+        })
+    }
+
     function validatePlay() {
         if (whose_turn.value !== auth_username) {
             validPlay.value = false;
@@ -155,7 +160,6 @@
         }
         let played = tilesOnBoard()
         if (played.length === 0) {
-            console.log("no tiles on board")
             validPlay.value = false
             return
         }
@@ -167,14 +171,10 @@
         let usedCols = playedCols()
         let usedRows = playedRows()
         let playDir = playDirection()
-        let isStraight = (playDir != "neither")
+        let isStraight = (playDir !== "neither")
 
         if (!isStraight) {
             validPlay.value = false
-            return
-        }
-        if (isStraight && hasMiddle && played.length > 1) {
-            validPlay.value = true;
             return
         }
 
@@ -205,6 +205,10 @@
                 }
                 row++
             }
+        }
+        if (isStraight && hasMiddle && connected && played.length > 1) {
+            validPlay.value = true;
+            return
         }
 
         if (!connected) {
@@ -276,27 +280,26 @@
             let cell = b[row][col]
             if (col >= b.length || cell.value == null) break;
             score += cell.value
-            console.log(cell)
             word += cell.sub || cell.letter || cell.previous
             if (cell.letter && cell.type == 'triple-word') tws++
             if (cell.letter && cell.type == 'double-word') dws++
+            if (cell.letter && cell.type == 'center') dws++
             col++
             len++
         }
         if (len < 2) return 0
         score *= 3**tws
         score *= 2**dws
-        validWords.value.push({ word: word, score: score })
+        playedWords.value[word] = score
         return score
     }
 
     function scorePlay() {
         validatePlay()
-        validWords.value = []
+        playedWords.value = {}
         playScore.value = 0
 
         if (!validPlay.value) return 0;
-        console.log("valid", validPlay)
 
         let usedRows = playedRows()
         let usedCols = playedCols()
@@ -316,11 +319,11 @@
             })
 
         }
+        validateWords(Object.keys(playedWords.value))
         if (tilesOnBoard().length === 7) {
-            validWords.value.push({ word: "BINGO!", score: 50 })
+            playedWords["BINGO!"] = 50
             score += 50
         }
-        console.log(validWords)
         playScore.value = score
     }
 
@@ -397,7 +400,6 @@
         let b = rackLetters.value[e.dataTransfer.getData("index")]
 
         // swap tiles
-        console.log(a, b)
         a.row = [b.row, b.row = a.row][0]; // swap row of tiles
         a.col = [b.col, b.col = a.col][0]; // swap col of tiles
     }
@@ -420,11 +422,9 @@
             board.value[row-1][col-1].letter = tile.letter
             if (tile.sub) board.value[row-1][col-1].sub = tile.sub
             board.value[row-1][col-1].value = modifiedLetterValue(letterPoints[tile.letter], row, col)
-            console.log(board.value)
         }
 
         scorePlay()
-        console.log("valid?", validPlay.value)
     }
 
     function exchangeDragging(e) {
@@ -432,7 +432,6 @@
         el.classList.add('hide');
         e.dataTransfer.setData("index", el.getAttribute("index"));
         exchangeTile.value = el
-        console.log(exchangeTile.value)
     }
 
     function exchangeDrop(e) {
@@ -447,7 +446,6 @@
         const letters = Array.from(document.querySelectorAll(".exchange-me-please")).map(tile => {
             return tile.getAttribute("letter")
         }).join("")
-        console.log(letters)
         submitPlay("exchange", letters)
         dialogExchange.value.close()
     }
@@ -550,7 +548,6 @@
             board.value[row - 1][tile.col - 1].sub = tile.sub
         }
         scorePlay()
-        console.log(dialogBlanks)
         dialogBlanks.value.close()
     }
 
@@ -682,10 +679,10 @@
         </div>
     </div>
     <div
-        v-for="(word, index) in validWords"
-        :key="`valid-words-${index}`"
+        v-for="(score, word) in playedWords"
+        :class="{ 'invalid-word': invalidWords.includes(word) }"
     >
-    {{word.word}}: {{word.score}}
+    {{word}}: {{score}}
     </div>
     <div v-if="playScore">{{ playScore }}</div>
 </template>
@@ -843,6 +840,9 @@ dialog {
 }
 .valid {
     border: 3px solid #0FFF50;
+}
+.invalid-word {
+    color:red;
 }
 .invalid {
     border: 3px solid red !important;

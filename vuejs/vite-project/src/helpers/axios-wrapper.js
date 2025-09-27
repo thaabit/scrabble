@@ -17,7 +17,6 @@ function request(method) {
             headers['Content-Type'] = 'application/json';
             body = JSON.stringify(body);
         }
-        console.log(url, headers)
 
         const data = axios({
             method: method,
@@ -25,7 +24,6 @@ function request(method) {
             data: body,
             headers: headers
         }).then(response => {
-            console.log(response)
         })
         .catch(response => {
             const { user, logout } = useAuthStore();

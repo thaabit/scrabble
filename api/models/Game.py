@@ -30,7 +30,7 @@ for key in value_of_letters:
 
 # (r, c)
 TWS_COORDS = [(0,0), (0,7), (0,14), (7,0), (7,14), (14,0), (14,7), (14,14)]
-DLS_COORDS = [(0,3), (0,11), (2,6), (2,8), (3,0), (3,7), (3,14), (6,2), (6,6), (6,8), (6,12), (7,3), (7,6), (7,8), (7,11), (8,2), (8,6), (8,8), (8,12), (11,0), (11,7), (11,14), (12,6), (12,8), (14,3), (14,11)]
+DLS_COORDS = [(0,3), (0,11), (2,6), (2,8), (3,0), (3,7), (3,14), (6,2), (6,6), (6,8), (6,12), (7,3), (7,11), (8,2), (8,6), (8,8), (8,12), (11,0), (11,7), (11,14), (12,6), (12,8), (14,3), (14,11)]
 DWS_COORDS = [(1,1), (1,13), (2,2), (2,12), (3,3), (3,11), (4,4), (4,10), (7,7), (13,1), (13,13), (12,2), (12,12), (11,3), (11,11), (10,4), (10,10)]
 TLS_COORDS = [(1,5), (1,9), (5,1), (5,5), (5,9), (5,13), (13,5), (13,9)]
 MAX_COLUMN = 14
@@ -84,9 +84,8 @@ class Game(SQLModelBase, table=True):
 
 
     def first_move(self):
-        moves = self.moves
+        moves = [x for x in self.moves if x.type == 'play']
         if not moves: return True
-        if not [m.type == 'play' for m in moves]: return True
         return False
 
     def scores(self):
@@ -96,7 +95,6 @@ class Game(SQLModelBase, table=True):
     def score(self, user):
         #return sum([int(x.score) for x in list(filter(lambda x: x.user == user, self.moves))])
         total = sum([int(x.score) for x in self.moves if x.username == user and x.type == 'play'])
-        print(total)
         return total
 
     def game_over(self):

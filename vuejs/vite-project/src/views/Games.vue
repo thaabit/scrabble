@@ -6,7 +6,6 @@ const games = ref()
 onMounted(() => {
     http.get('/games').then(response => {
         games.value = response.data
-        console.log(response)
     })
     .catch(error => {
         const msg = (error.data && error.data.detail) || error.statusText;

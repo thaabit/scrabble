@@ -1,35 +1,42 @@
-<template>
-  <h1>Signup</h1>
-  <p class="error" v-if="error">{{ error }}</p>
-  <form>
-  <input type="text" placeholder="Username" v-model="username" data-1p-ignore />
-  <input type="password" placeholder="Password" v-model="password" data-1p-ignore />
-  <button @click.prevent="signup">Sign up</button>
-  </form>
-</template>
-<script>
-import { axiosWrapper } from '@/helpers/axios-wrapper.js';
-export default {
-    name: 'Signup',
-    data() {
-        return {
-            username: '',
-            password: '',
-            error: '',
-        }
-    },
-    methods: {
-        signup() {
-            this.error = ''
-            let data = axiosWrapper.post("user", {
-                username: this.username,
-                password: this.password
-            })
-            if (data.error) this.error = data.error
-        }
+<script setup>
+import { http } from '@/helpers/api.js';
+import { Form, Field } from 'vee-validate'
+import * as Yup from 'yup'
+import { router } from '@/helpers/router.js';
+
+const schema = Yup.object().shape({
+    username: Yup.string().required('Username is required'),
+    password: Yup.string().required('Password is required')
+});
+function signup(values) {
+    const { username, password } = values
+    let body = {
+        username: username,
+        password: password,
     }
+    http.post('/user', body).then(response => {
+        const { store } = useAuthStore();
+        console.log(response.data)
+        store(response.data.access_token)
+        //router.push('/friends')
+    })
+    .catch(error => {
+        const msg = (error.data && error.data.detail) || error.statusText;
+        console.error('Error creating item:', msg);
+        throw new Error(msg);
+    });
 }
 </script>
+
+<template>
+  <h1>Signup</h1>
+  <Form @submit="signup" :validation-schema="schema">
+  <Field name="username" placeholder="Username" data-1p-ignore />
+  <Field name="password" type="password" placeholder="Password" data-1p-ignore />
+  <button>Signup</button>
+  </Form>
+</template>
+
 <style>
 .error { color: red }
 form {

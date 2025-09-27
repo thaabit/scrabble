@@ -4,11 +4,11 @@ import sqlalchemy
 import sys
 import bcrypt
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import create_engine, Session, select, or_, and_, SQLModel
+from sqlmodel import create_engine, Session, select, or_, and_, SQLModel, text
 from typing import Annotated
 
 from models.Game import Game
@@ -139,7 +139,6 @@ def create_user(user: UserCreate):
             session.refresh(db_user)
             access_token = create_access_token(data={"sub": user.username})
             return_hash = {"username": db_user.username, "access_token": access_token, "token_type": "bearer"}
-            print(return_hash)
             return return_hash
         except sqlalchemy.exc.IntegrityError as e:
             print(e)
@@ -165,12 +164,11 @@ def add_move(move: Move, auth_username: str = Depends(get_authed_username)):
             print(e)
             raise HTTPException(status_code=422, detail=e.args)
         try:
-            print(move)
             session.add(move)
             session.commit()
             session.refresh(move)
         except Exception as e:
-            print(e, e.args)
+            print(e)
             raise HTTPException(status_code=422, detail=e.args)
         return move
 
@@ -186,9 +184,17 @@ def get_board(game_id: int):
         s2 = game.score(game.user_two)
         return f"{game.user_one}: {s1}\n{game.user_two}: {s2}\ntiles left: {len(game.bag)}\n{b}"
 
+@app.get("/word")
+def get_tray(words: list[str] = Query(default=...)):
+    with Session(engine) as session:
+        qs = ",".join("?"*len(words))
+        sql = text(f'SELECT word FROM word WHERE word IN :word_list')
+        valid = [x[0] for x in session.execute(sql, params={"word_list": words}).fetchall()]
+        invalid = (list(set(words) - set(valid)))
+        return { "invalid": invalid }
+
 @app.get("/tray/{game_id}")
 def get_tray(game_id: int, auth_username: str = Depends(get_authed_username)):
-    print(game_id)
     with Session(engine) as session:
         game = session.get(Game, game_id)
         if not game: raise HTTPException(status_code=404, detail='Game not found')

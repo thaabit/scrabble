@@ -3,6 +3,7 @@ import { http } from '@/helpers/api.js';
 import { Form, Field } from 'vee-validate';
 import * as Yup from 'yup';
 import { useAuthStore } from '@/stores/auth.store.js';
+import { router } from '@/helpers/router.js';
 
 const schema = Yup.object().shape({
     username: Yup.string().required('Username is required'),
@@ -16,7 +17,6 @@ function login(values) {
         username: username,
         password: password,
     }).then(response => {
-        console.log(response.data);
         store(response.data.access_token)
     })
     .catch(error => {
