@@ -1,9 +1,21 @@
+<template>
+  <h1>Signup</h1>
+  <p v-if="apiError" class="error">{{ apiError }}</p>
+  <Form @submit="signup" :validation-schema="schema">
+  <Field name="username" placeholder="Username" data-1p-ignore />
+  <Field name="password" type="password" placeholder="Password" data-1p-ignore />
+  <button>Signup</button>
+  </Form>
+</template>
+
 <script setup>
+import { ref } from 'vue'
 import { http } from '@/helpers/api.js';
 import { Form, Field } from 'vee-validate'
 import * as Yup from 'yup'
 import { router } from '@/helpers/router.js';
 
+const apiError = ref(null)
 const schema = Yup.object().shape({
     username: Yup.string().required('Username is required'),
     password: Yup.string().required('Password is required')
@@ -18,24 +30,17 @@ function signup(values) {
         const { store } = useAuthStore();
         console.log(response.data)
         store(response.data.access_token)
-        //router.push('/friends')
+        router.push('/')
     })
     .catch(error => {
-        const msg = (error.data && error.data.detail) || error.statusText;
-        console.error('Error creating item:', msg);
-        throw new Error(msg);
+        const msg = error.response.data?.detail || error.statusText;
+        console.error('Signup Error:', error);
+        console.log(msg)
+        apiError.value = msg
     });
 }
 </script>
 
-<template>
-  <h1>Signup</h1>
-  <Form @submit="signup" :validation-schema="schema">
-  <Field name="username" placeholder="Username" data-1p-ignore />
-  <Field name="password" type="password" placeholder="Password" data-1p-ignore />
-  <button>Signup</button>
-  </Form>
-</template>
 
 <style>
 .error { color: red }

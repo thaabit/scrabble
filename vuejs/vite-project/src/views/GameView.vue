@@ -1,8 +1,9 @@
 <template>
 <div class="two-columns">
     <div> <!-- left - col 1 -->
+        <div v-if="gameOverMan" class="error">GAME OVER MAN</div>
         <div class="scores">
-        <div v-for="(player) in scores" class="scores" :class="(whose_turn === player.username) ? 'current' : ''" >
+            <div v-for="(player) in scores.sort(player => { player.username === auth_username ? 1 : -1 })" class="scores" :class="(whose_turn === player.username) ? 'current' : ''" >
             <div class="user">{{ player.username === auth_username ? "You" : player.username }} </div>
             <div class="score">{{player.score}}</div>
         </div>
@@ -14,10 +15,22 @@
         <div>{{word}}: {{score}}</div>
         </div>
         <div v-if="playScore">TOTAL: {{ playScore }}</div>
+        <div>Games</div>
+        <div v-for="(game) in games"
+            @click="changeGame(game.id)"
+            class="games clickable"
+        >
+            <div
+                v-for="(player) in game.scores.sort((x,y) => { y.username === auth_username ? -1 : 1 })"
+                :class="(player.username === game.whose_turn && !game.finished) ? 'current' : ''"
+            >
+            <div class="user">{{ player.username === auth_username ? "You" : player.username }} </div>
+            <div class="score">{{ player.score }}</div>
+            </div>
+        </div>
     </div>
 
     <div class="centerize"> <!-- main column -->
-    <div v-if="gameOverMan" class="error">GAME OVER MAN</div>
     <Dialog ref="dialogPass">
         <div>You sure about that?</div>
         <button @click="pass(true)">Pass</button>
@@ -112,10 +125,7 @@
                 v-on:dragover="allowDrop"
                 v-on:drop="swapTiles"
                 @dblclick="showBlankDialog(tile)"
-                >
-                {{ tile.sub || tile.letter }}
-                <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
-        </div>
+                ><span class="letter">{{ tile.sub || tile.letter }}</span><small class="points">{{ letterPoints[tile.letter] || '' }}</small></div>
 
         <!-- played tiles superimposed on board -->
         <div
@@ -127,8 +137,7 @@
             v-on:dragend="nodrop"
             draggable="true"
         >
-        {{tile.sub || tile.letter}}
-        <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+        <span class="letter">{{tile.sub || tile.letter}}</span><small class="points">{{ letterPoints[tile.letter] || '' }}</small>
         </div>
     </div>
     </div>
@@ -136,19 +145,20 @@
 </template>
 <script setup>
     import { http } from '@/helpers/api.js';
-    import { ref, onMounted, onUnmounted, useTemplateRef } from 'vue'
-    import { useRoute } from 'vue-router'
+    import { ref, onMounted, onUnmounted, useTemplateRef, watch } from 'vue'
+    import { router } from '@/helpers/router.js'
+    import { useRoute } from 'vue-router';
     import { useAuthStore } from '@/stores/auth.store.js'
     import Dialog from '@/components/Dialog.vue'
 
     const route = useRoute()
-
     const rackLetters = ref([])
     const validPlay = ref(false);
     const board = ref([])
     const playedTiles = ref([])
     const playedCoords = ref(new Map)
     const scores = ref([])
+    const games = ref([])
 
     const auth_username = useAuthStore().parseJWT().sub
     const rackRow = 16
@@ -173,6 +183,13 @@
     const exchangeYes = ref([])
     const myTurn = ref(false)
     const whose_turn = ref(null)
+    const gameId = ref(route?.params?.id)
+
+    watch(() => route.params.id, (newId, oldId) => {
+        gameId.value = newId
+        initializeBoard()
+        refreshGame()
+    })
 
     let interval
     onMounted(() => {
@@ -184,6 +201,12 @@
     onUnmounted(() => {
         clearInterval(interval);
     });
+
+    function changeGame(id) {
+        if (id != route?.params?.id) {
+            router.push(`/game/${id}`)
+        }
+    }
 
     function checkRefreshGame() {
         if (!myTurn) {
@@ -199,12 +222,36 @@
         return playedCoords.value.get(coordsKey(row, col))
     }
 
+    function refreshGameList() {
+        http.get('/game').then(response => {
+            console.log(response.data)
+            games.value = response.data.filter(game => {
+            console.log(game.id, route.params.id, gameId.value, Number(route.params.id))
+                return Number(game.id) !== Number(route.params.id)
+            })
+        })
+        .catch(error => {
+            const msg = (error.data && error.data.detail) || error.statusText;
+            throw new Error(msg);
+        });
+    }
+
     function refreshGame() {
+        refreshGameList()
+
         playedWords.value = {}
+        playedTiles.value = []
         playScore.value = 0
+        rackLetters.value = []
+        exchangeNo.value = []
+        playedCoords.value = new Map
+        scores.value = []
+        gameOverMan.value = false
+
+        if (!route?.params.id) return;
+        console.log(route.params.id);
         http.get('/game/' + route.params.id).then(response => {
             let rack_start = 5
-            rackLetters.value = []
             response.data.tray.forEach(letter => {
                 rackLetters.value.push({
                     letter: letter,

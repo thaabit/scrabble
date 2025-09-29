@@ -1,3 +1,6 @@
+* {
+    box-sizing: border-box;
+}
 #top {
     width:100%;
     padding:5px;
@@ -105,7 +108,7 @@ button:focus-visible {
 .scrabble-board {
   gap: 0;
   margin:0;
-  width:100vmin;
+  width:80vmin;
   display: grid;
   grid-template-columns: repeat(15, 1fr);
   border: 2px solid #333;
@@ -113,13 +116,17 @@ button:focus-visible {
   background: #aaa;
   border-radius:15px;
   box-sizing: border-box;
+  align-items: center;
+  justify-items: center;
 }
 
 .rack-cell {
   background: #ddd;
+  align-items: center;
+  justify-items: center;
 }
 .board-cell {
-  width:5.5vmin;
+  width:4.5vmin;
   font-weight:bold;
   aspect-ratio: 1 / 1;
   border: 1px solid #aaa;
@@ -128,6 +135,8 @@ button:focus-visible {
   border-radius:5px;
   display:inline;
   vertical-align: middle;
+  align-items: center;
+  justify-items: center;
 }
 
 .triple-word {
@@ -187,17 +196,26 @@ dialog {
     grid-template-columns: repeat(7, 1fr);
 }
 .tile {
+    display:inline-block;
     line-height:1;
-    width:5.5vmin;
-    font-size: 2vw;
+    width:4.5vmin;
+    font-size: 1.7vw;
     background:black;
     color:#fff;
     z-index:1100;
 }
-.tile small {
+.board-cell .letter {
+    text-align: center;
+    vertical-align:-webkit-baseline-middle;
+    align-self:center;
+    align-items: center;
+    justify-items: center;
+}
+small.points {
     margin:0;
     padding:0;
     color:inherit;
+    vertical-align:bottom;
 }
 .logo {
   height: 6em;
@@ -255,7 +273,7 @@ a:hover {
     border-radius:15px;
 }
 .scores .score {
-    font-size:5.5vmin;
+    font-size:4.5vmin;
 }
 .scores .user {
     font-weight: bold;
@@ -265,4 +283,28 @@ a:hover {
 .scores .current {
     background: yellow;
     color: orange;
+}
+.games {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background:#555;
+    border-radius:5px;
+    margin-bottom:10px;
+}
+.games .score {
+    font-size:2vw;
+}
+.games .current {
+    background: #D12A24;
+    color: orange;
+    border-radius:5px;
+}
+.clickable {
+    cursor: pointer;
+}
+.games .user {
+    font-weight: bold;
+}
+.games .over {
+    font-weight: bold;
 }

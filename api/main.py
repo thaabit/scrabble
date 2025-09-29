@@ -81,15 +81,19 @@ def read_game(id: int, auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         game = session.get(Game, id)
         tray = session.exec(select(GameUser).where(and_(GameUser.game_id == id, GameUser.username == auth_username))).first()
+        if not game.game_over() and game.check_game_over():
+            session.add(game)
+            session.commit()
+
         if not game:
             raise HTTPException(status_code=404, detail="Game not found")
         return {
-            "game": game,
-            "tray": list(tray.tray),
-            "moves": game.hashedMoves(),
-            "scores": game.scores(),
+            "game":       game,
+            "tray":       list(tray.tray),
+            "moves":      game.hashedMoves(),
+            "scores":     game.scores(auth_username),
             "whose_turn": game.whose_turn(),
-            "game_over": game.game_over(),
+            "game_over":  game.game_over(),
         }
 
 class GameValidation(SQLModel):
@@ -110,7 +114,7 @@ def create_game(args: GameValidation, username: str = Depends(get_authed_usernam
         session.refresh(game)
         return game
 
-@router.get("/games")
+@router.get("/game")
 def list_games(auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         try:
@@ -120,10 +124,12 @@ def list_games(auth_username: str = Depends(get_authed_username)):
             for tray in auth_user.trays:
                 game = session.get(Game, tray.game_id)
                 out.append({
-                    "id": tray.game_id,
-                    "scores": game.scores(),
-                    "finished": game.game_over(),
+                    "id":         tray.game_id,
+                    "scores":     game.scores(auth_username),
+                    "whose_turn": game.whose_turn(),
+                    "finished":   game.game_over(),
                 })
+            out = sorted(out, key=lambda x: x["finished"])
             return out
 
         except Exception as e:
@@ -190,9 +196,8 @@ def get_board(game_id: int):
             raise HTTPException(status_code=404, detail="Game not found")
 
         b = game.pretty_board()
-        s1 = game.score(game.user_one)
-        s2 = game.score(game.user_two)
-        return f"{game.user_one}: {s1}\n{game.user_two}: {s2}\ntiles left: {len(game.bag)}\n{b}"
+        scores = game.scores()
+        return f"scores: {scores}\ntiles left: {len(game.bag)}\n{b}"
 
 @router.get("/word")
 def get_tray(words: list[str] = Query(default=...)):

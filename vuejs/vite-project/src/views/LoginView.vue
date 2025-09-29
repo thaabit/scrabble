@@ -1,4 +1,15 @@
+<template>
+  <h1>Login</h1>
+  <p v-if="apiError" class="error">{{ apiError }}</p>
+  <Form @submit="login" :validation-schema="schema">
+    <Field name="username" placeholder="Username" data-1p-ignore />
+    <Field name="password" type="password" placeholder="Password" data-1p-ignore />
+  <button>Login</button>
+  </Form>
+</template>
+
 <script setup>
+import { ref } from 'vue'
 import { http } from '@/helpers/api.js';
 import { Form, Field } from 'vee-validate';
 import * as Yup from 'yup';
@@ -10,33 +21,27 @@ const schema = Yup.object().shape({
     password: Yup.string().required('Password is required')
 });
 
+const apiError = ref(null)
+
 function login(values) {
     const { username, password } = values
-    const { token, logout, store } = useAuthStore();
+    const { store } = useAuthStore();
     http.post('/login', {
         username: username,
         password: password,
     }).then(response => {
         store(response.data.access_token)
+        console.log("logged in")
+        router.push('/');
     })
     .catch(error => {
-        const msg = (error.data && error.data.detail) || error.statusText;
-        console.error('Error creating item:', msg);
-        if ([401, 403].includes(error.status) && token) logout();
-        throw new Error(msg);
+        const msg = error.response?.data?.detail || error.detail || error.statusText;
+        console.error('Error logging in:', error);
+        apiError.value = msg 
     });
 }
 </script>
 
-<template>
-  <h1>Login</h1>
-  <p class="error" v-if="error">{{ error }}</p>
-  <Form @submit="login" :validation-schema="schema">
-    <Field name="username" placeholder="Username" data-1p-ignore />
-    <Field name="password" type="password" placeholder="Password" data-1p-ignore />
-  <button>Login</button>
-  </Form>
-</template>
 
 <style>
 .error { color: red }

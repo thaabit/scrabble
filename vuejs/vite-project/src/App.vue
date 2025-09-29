@@ -1,16 +1,24 @@
 <script setup>
     import { useAuthStore } from '@/stores/auth.store.js';
-    const { logout, isLoggedIn } = useAuthStore();
-
+    import { ref, computed } from 'vue';
+    import { storeToRefs } from 'pinia'
+    const authStore = useAuthStore();
+    const { isAuthenticated } = storeToRefs(authStore)
+    console.log(isAuthenticated.value)
 </script>
 <template>
 <div id="top">
-    <RouterLink to="/">Home</RouterLink> |
-    <RouterLink v-if="!isLoggedIn" to="/signup">Signup !</RouterLink>
-    <RouterLink v-if="!isLoggedIn" to="/login">Login !</RouterLink>
-    <RouterLink to="/games">Games </RouterLink> |
-    <RouterLink to="/friends">Friends</RouterLink> |
-    <a v-if="isLoggedIn" @click="logout">Logout</a>
+    <template v-if="isAuthenticated">
+    <RouterLink to="/">Home | </RouterLink>
+    <RouterLink to="/games">Games | </RouterLink>
+    <RouterLink to="/friends">Friends | </RouterLink>
+    <a @click="authStore.logout">Logout</a>
+    </template>
+
+    <template v-else>
+    <RouterLink to="/signup">Signup | </RouterLink>
+    <RouterLink to="/login">Login</RouterLink>
+    </template>
 </div>
 <RouterView />
 </template>
