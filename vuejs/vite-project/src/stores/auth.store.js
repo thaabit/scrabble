@@ -6,9 +6,15 @@ export const useAuthStore = defineStore('auth', {
     state: () => ({
         token: localStorage.getItem('jwt'),
     }),
+    getters: {
+        isAuthenticated: (state) => !!state?.token
+    },
     actions: {
         store(token) {
-            if (token) localStorage.setItem('jwt', token);
+            if (token) {
+                this.token = token;
+                localStorage.setItem('jwt', token);
+            }
         },
 
         logout() {
@@ -22,10 +28,6 @@ export const useAuthStore = defineStore('auth', {
                 return JSON.parse(atob(payload))
             }
             return {}
-        },
-        isLoggedIn() {
-            return (this.token)
-
         },
     }
 });

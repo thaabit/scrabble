@@ -63,13 +63,17 @@ class Game(SQLModelBase, table=True):
             out.append(tiles)
         return out
 
-    def draw(self):
-
+    def check_game_over(self):
         # check for endgame
         no_more_letters = any(tray.tray == '' for tray in self.trays) and self.bag == ''
         three_passes = len(self.moves) >= 3 and self.moves[-3].type == 'pass' and self.moves[-2].type == 'pass' and self.moves[-1] == 'pass'
         if no_more_letters or three_passes:
             self.finished = datetime.utcnow()
+            return True
+
+    def draw(self):
+
+        if self.game_over() or self.check_game_over():
             return
 
         # randomize list of letters
@@ -91,8 +95,9 @@ class Game(SQLModelBase, table=True):
     def opponents(self, username):
         [x.username for x in trays if x.username != username]
 
-    def scores(self):
+    def scores(self, username=None):
         scores = [{ "username": tray.username, "score": self.score(tray.username) } for tray in self.trays]
+        if username: scores = sorted(scores, key=lambda x: 1 if x["username"] != username else -1)
         return scores
 
     def score(self, username):
@@ -144,6 +149,7 @@ class Game(SQLModelBase, table=True):
             if not (horizontal or vertical): raise Exception("All letters must be in same row or column")
 
             # must connect to existing letter
+            print(sorted(board_tiles))
             if not first_move:
                 found_connection = False
                 sides = [(0,1),(0,-1),(1,0),(-1,0)]
@@ -264,7 +270,7 @@ class Game(SQLModelBase, table=True):
         return score
 
     def taken_spaces(self):
-        taken_spaces = [c for move in self.moves for c in move.coords().keys()]
+        taken_spaces = [c for move in self.moves if move.type == 'play' for c in move.coords().keys()]
         return taken_spaces
 
     def all_moves(self):
