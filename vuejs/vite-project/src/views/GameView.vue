@@ -1,3 +1,139 @@
+<template>
+<div class="two-columns">
+    <div> <!-- left - col 1 -->
+        <div class="scores">
+        <div v-for="(player) in scores" class="scores" :class="(whose_turn === player.username) ? 'current' : ''" >
+            <div class="user">{{ player.username === auth_username ? "You" : player.username }} </div>
+            <div class="score">{{player.score}}</div>
+        </div>
+        </div>
+        <div
+            v-for="(score, word) in playedWords"
+            :class="{ 'invalid-word': invalidWords.includes(word) }"
+        >
+        <div>{{word}}: {{score}}</div>
+        </div>
+        <div v-if="playScore">TOTAL: {{ playScore }}</div>
+    </div>
+
+    <div class="centerize"> <!-- main column -->
+    <div v-if="gameOverMan" class="error">GAME OVER MAN</div>
+    <Dialog ref="dialogPass">
+        <div>You sure about that?</div>
+        <button @click="pass(true)">Pass</button>
+        <button @click="closePassDialog">Cancel</button>
+    </Dialog>
+    <Dialog ref="dialogExchange">
+        <div class="letter-choice">
+            <div
+                v-for="col in 7"
+                class="rack-cell"
+                :style="{gridColumn: col, gridRow: 1}"
+                v-on:dragover="allowDrop"
+                v-on:drop="exchangeDrop"
+            >
+            </div>
+            <div
+                v-for="col in 7"
+                class="board-cell"
+                :style="{gridColumn: col, gridRow: 2}"
+                v-on:dragover="allowDrop"
+                v-on:drop="exchangeDrop"
+            ></div>
+            <div
+                v-for="(tile, col) in rackLetters"
+                :key="`exchange-letter-${col}`"
+                class="board-cell tile"
+                :letter="tile.letter"
+                :style="{gridColumn: col + 1, gridRow: 1}"
+                v-on:dragstart="exchangeDragging"
+                v-on:dragend="nodrop"
+                draggable="true"
+            >
+                {{ tile.sub || tile.letter }}
+                <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+            </div>
+        </div>
+        <button @click="completeExchange">Exchange</button>
+    </Dialog>
+    <Dialog ref="dialogBlanks">
+        <div class="letter-choice">
+        <div v-for="(value, letter) in letterPoints" class="tile" @click="pickBlankReplacement(letter)">{{letter}}</div>
+        </div>
+    </Dialog>
+
+    <div class="scrabble-board" id="board">
+
+        <!-- underlying board -->
+        <template v-for="(row, rowIndex) in board">
+            <template v-for="(cell, colIndex) in row">
+                <div
+                        :class="['bonus-text','board-cell', getCellClass(cell)]"
+                        v-on:drop="drop"
+                        v-on:dragover="allowDrop"
+                        :style="{gridColumn: colIndex + 1, gridRow: rowIndex + 1}"
+                        >
+                        {{ getBonusText(cell.type) }}
+                </div>
+            </template>
+        </template>
+
+
+        <!-- Rack -->
+        <div class="rack-bumper" :style="{gridColumn: 1, gridRow: rackRow, gridColumnEnd: 'span 4'}">
+            <button @click="shuffleTray" :disabled="gameOverMan">Shuffle</button>
+            <button @click="recallTiles" :disabled="gameOverMan">Recall</button>
+            <button @click="refreshGame" :disabled="gameOverMan">Refresh</button>
+        </div>
+        <div
+            v-for="(col) in [...Array(7).keys()]"
+            :class="['board-cell','rack-cell']"
+            :style="{gridColumn: col + 5, gridRow: 16}"
+            v-on:drop="drop"
+            v-on:dragover="allowDrop"
+        />
+        <div class="rack-bumper" :style="{gridColumn: 12, gridRow: rackRow, gridColumnEnd: 'span 4'}">
+            <button @click="play"           :disabled="!myTurn || !validPlay">Submit</button>
+            <button @click="pass(false)"    :disabled="!myTurn">Pass</button>
+            <button @click="exchange(null)" :disabled="!myTurn">Exchange</button>
+        </div>
+
+        <!-- User Tiles -->
+        <div
+                v-for="(tile, index) in rackLetters"
+                :key="`tile-${index}`"
+                :class="['bonus-text','board-cell','tile', validClass(tile), tile.sub ? 'blank' : '']"
+                :style="{gridColumn: tile.col, gridRow: tile.row}"
+                draggable="true"
+                :letter="tile.letter"
+                :index="index"
+                v-on:dragstart="dragging"
+                v-on:dragend="nodrop"
+                v-on:dragover="allowDrop"
+                v-on:drop="swapTiles"
+                @dblclick="showBlankDialog(tile)"
+                >
+                {{ tile.sub || tile.letter }}
+                <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+        </div>
+
+        <!-- played tiles superimposed on board -->
+        <div
+            v-for="(tile, index) in playedTiles"
+            :key="`played-${index}`"
+            :class="['bonus-text','board-cell', 'tile', 'played', tile.sub ? 'blank' : '']"
+            :style="{gridColumn: tile.col, gridRow: tile.row}"
+            v-on:dragstart="dragging"
+            v-on:dragend="nodrop"
+            draggable="true"
+        >
+        {{tile.sub || tile.letter}}
+        <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+        </div>
+    </div>
+    </div>
+    </div>
+</template>
 <script setup>
     import { http } from '@/helpers/api.js';
     import { ref, onMounted, onUnmounted, useTemplateRef } from 'vue'
@@ -13,7 +149,6 @@
     const playedTiles = ref([])
     const playedCoords = ref(new Map)
     const scores = ref([])
-    const whose_turn = ref('')
 
     const auth_username = useAuthStore().parseJWT().sub
     const rackRow = 16
@@ -30,16 +165,20 @@
     }
     const dialogBlanks = useTemplateRef('dialogBlanks')
     const dialogExchange = useTemplateRef('dialogExchange')
+    const dialogPass = useTemplateRef('dialogPass')
     const closeBlankLetterReplace = () => dialogBlanks.value?.close()
+    const closePassDialog = () => dialogPass.value?.close()
     const exchangeTile = ref(null)
     const exchangeNo = ref([])
     const exchangeYes = ref([])
+    const myTurn = ref(false)
+    const whose_turn = ref(null)
 
     let interval
     onMounted(() => {
         initializeBoard()
         refreshGame()
-        interval = setInterval(checkRefreshGame, 1000*10)
+        interval = setInterval(checkRefreshGame, 1000*60)
     })
 
     onUnmounted(() => {
@@ -47,7 +186,7 @@
     });
 
     function checkRefreshGame() {
-        if (whose_turn.value !== auth_username) {
+        if (!myTurn) {
             refreshGame()
         }
     }
@@ -87,6 +226,7 @@
             scores.value = response.data.scores
             gameOverMan.value = response.data.game_over
             whose_turn.value = response.data.whose_turn
+            myTurn.value = response.data.whose_turn == auth_username && !gameOverMan.value
         })
         .catch(error => {
             console.log(error)
@@ -96,30 +236,41 @@
 
     }
 
-    function submitPlay(moveType="play", move) {
+    function pass(force) {
+        if (force) {
+            submitPlay('pass')
+        } else {
+            dialogPass.value.show()
+        }
+    }
+
+    function exchange(data) {
+        if (data) {
+            submitPlay('exchange', data)
+        } else {
+            dialogExchange.value.show()
+        }
+    }
+
+    function play() {
+        if (validPlay.value) {
+            let data = tilesOnBoard().map(tile => {
+                let letter = tile.sub ? tile.letter + tile.sub : tile.letter
+                return [letter, tile.row - 1, tile.col - 1].join(':')
+            }).join('::')
+            submitPlay('play', data)
+        }
+    }
+
+    function submitPlay(moveType="play", data=null) {
         let body = {
             game_id: route.params.id,
             type: moveType
         }
-        if (moveType == "exchange") {
-            body.data = move
-        }
-        else if (moveType ==="pass" && !confirm("Do you really want to pass?")) {
-            return
-        }
-        else if (moveType === "play" && validPlay.value) {
-            body.data = tilesOnBoard().map(tile => {
-                let letter = tile.sub ? tile.letter + tile.sub : tile.letter
-                return [letter, tile.row - 1, tile.col - 1].join(':')
-            }).join('::')
-        }
+        if (data) body.data = data
         http.post('/move', body).then(response => {
             refreshGame()
         })
-    }
-
-    function exchangeLetters() {
-        dialogExchange.value.show()
     }
 
     function takenCols(row) {
@@ -154,10 +305,6 @@
     }
 
     function validatePlay() {
-        if (whose_turn.value !== auth_username) {
-            validPlay.value = false;
-            return;
-        }
         let played = tilesOnBoard()
         if (played.length === 0) {
             validPlay.value = false
@@ -380,7 +527,8 @@
 
     function dragging(e) {
         let el = e.target;
-        el.classList.add('hide');
+        el.classList.add('dragging');
+
         e.dataTransfer.setData("index", el.getAttribute("index"));
         let row = Number(el.style.gridRow)
         let col = Number(el.style.gridColumn)
@@ -429,7 +577,7 @@
 
     function exchangeDragging(e) {
         let el = e.target;
-        el.classList.add('hide');
+        el.classList.add('dragging');
         e.dataTransfer.setData("index", el.getAttribute("index"));
         exchangeTile.value = el
     }
@@ -451,7 +599,7 @@
     }
 
     function nodrop(e) {
-        e.target.classList.remove('hide');
+        e.target.classList.remove('dragging');
     }
 
     function generateItems(count, creator) {
@@ -558,301 +706,3 @@
 
     }
 </script>
-<template>
-    <div v-if="gameOverMan" class="error">GAME OVER MAN</div>
-    <Dialog ref="dialogExchange">
-        <div class="letter-choice">
-            <div
-                v-for="col in 7"
-                class="rack-cell"
-                :style="{gridColumn: col, gridRow: 1}"
-                v-on:dragover="allowDrop"
-                v-on:drop="exchangeDrop"
-            >
-            </div>
-            <div
-                v-for="col in 7"
-                class="board-cell"
-                :style="{gridColumn: col, gridRow: 2}"
-                v-on:dragover="allowDrop"
-                v-on:drop="exchangeDrop"
-            ></div>
-            <div
-                v-for="(tile, col) in rackLetters"
-                :key="`exchange-letter-${col}`"
-                class="board-cell tile"
-                :letter="tile.letter"
-                :style="{gridColumn: col + 1, gridRow: 1}"
-                v-on:dragstart="exchangeDragging"
-                v-on:dragend="nodrop"
-                draggable="true"
-            >
-                {{ tile.sub || tile.letter }}
-                <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
-            </div>
-        </div>
-        <button @click="completeExchange">Exchange</button>
-    </Dialog>
-    <Dialog ref="dialogBlanks">
-        <div class="letter-choice">
-        <div v-for="(value, letter) in letterPoints" class="tile" @click="pickBlankReplacement(letter)">{{letter}}</div>
-        </div>
-    </Dialog>
-
-    <div class="scrabble-board" id="board">
-
-        <!-- underlying board -->
-        <template v-for="(row, rowIndex) in board">
-            <template v-for="(cell, colIndex) in row">
-                <div
-                        :class="['bonus-text','board-cell', getCellClass(cell)]"
-                        v-on:drop="drop"
-                        v-on:dragover="allowDrop"
-                        :style="{gridColumn: colIndex + 1, gridRow: rowIndex + 1}"
-                        >
-                        {{ getBonusText(cell.type) }}
-                </div>
-            </template>
-        </template>
-
-
-        <!-- Rack -->
-        <div class="rack-bumper" :style="{gridColumn: 1, gridRow: rackRow, gridColumnEnd: 'span 4'}">
-            <div style="padding:5px; background:#555;font-size:larger;margin:0">
-            <div v-for="(player) in scores">
-                <span v-for="(score, username) in player">
-                    <span :class = "(username === whose_turn) ? 'current_turn' : ''">
-                        <b>{{ username === auth_username ? "You" : username }} </b>: {{score}}
-                    </span>
-                </span>
-            </div>
-            </div>
-
-        </div>
-        <div
-            v-for="(col) in [...Array(7).keys()]"
-            :class="['rack-cell']"
-            :style="{gridColumn: col + 5, gridRow: 16}"
-            v-on:drop="drop"
-            v-on:dragover="allowDrop"
-        />
-        <div class="rack-bumper" :style="{gridColumn: 12, gridRow: rackRow, gridColumnEnd: 'span 4'}">
-            <button @click="shuffleTray">Shuffle</button>
-            <button @click="recallTiles">Recall</button>
-            <button @click="refreshGame">Refresh</button>
-            <button @click="submitPlay('play')" :disabled="(validPlay) ? false : true">Submit</button>
-            <button @click="submitPlay('pass')">Pass</button>
-            <button @click="exchangeLetters">Exchange</button>
-        </div>
-
-        <!-- User Tiles -->
-        <div
-                v-for="(tile, index) in rackLetters"
-                :key="`tile-${index}`"
-                :class="['bonus-text','board-cell','tile', validClass(tile), tile.sub ? 'blank' : '']"
-                :style="{gridColumn: tile.col, gridRow: tile.row}"
-                draggable="true"
-                :letter="tile.letter"
-                :index="index"
-                v-on:dragstart="dragging"
-                v-on:dragend="nodrop"
-                v-on:dragover="allowDrop"
-                v-on:drop="swapTiles"
-                @dblclick="showBlankDialog(tile)"
-                >
-                {{ tile.sub || tile.letter }}
-                <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
-        </div>
-
-        <!-- played tiles superimposed on board -->
-        <div
-            v-for="(tile, index) in playedTiles"
-            :key="`played-${index}`"
-            :class="['bonus-text','board-cell', 'tile', 'played', tile.sub ? 'blank' : '']"
-            :style="{gridColumn: tile.col, gridRow: tile.row}"
-            v-on:dragstart="dragging"
-            v-on:dragend="nodrop"
-            draggable="true"
-        >
-        {{tile.sub || tile.letter}}
-        <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
-        </div>
-    </div>
-    <div
-        v-for="(score, word) in playedWords"
-        :class="{ 'invalid-word': invalidWords.includes(word) }"
-    >
-    {{word}}: {{score}}
-    </div>
-    <div v-if="playScore">{{ playScore }}</div>
-</template>
-
-<style scoped>
-.rack-bumper {
-    border-radius:5px;
-}
-.scrabble-board {
-  display: grid;
-  grid-template-columns: repeat(15, 1fr);
-  border: 2px solid #333;
-  padding: 16px;
-  background: #aaa;
-  border-radius:15px;
-}
-
-.board-row {
-  display: flex;
-}
-
-.rack-cell {
-  aspect-ratio: 1 / 1;
-  border: 1px solid #aaa;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  position: relative;
-  background: #ddd;
-  margin:2px;
-  border-radius:5px;
-}
-.board-cell {
-  aspect-ratio: 1 / 1;
-  border: 1px solid #aaa;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  position: relative;
-  background: #F8F8F8;
-  margin:2px;
-  border-radius:5px;
-}
-
-.triple-word {
-  background: red;
-}
-
-.double-word {
-  background: darkorange;
-  color:white;
-}
-
-.triple-letter {
-  background: royalblue;
-  color:white;
-}
-
-.double-letter {
-  background: lightblue;
-}
-
-.center {
-  background: #ffd93d;
-}
-
-.letter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background: #f8f9fa;
-  border: 1px solid #343a40;
-}
-
-.points {
-  font-size: .3em;
-  bottom: 4px;
-  right: 4px;
-  color:black;
-}
-
-.bonus-text {
-  font-size: 12px;
-  color: white;
-}
-
-.has-letter {
-  background: #f8f9fa;
-}
-dialog {
-    width:50%;
-    border-radius:15px;
-}
-.letter-choice {
-    display:grid;
-    grid-template-columns: repeat(7, 1fr);
-}
-.rack {
-  display:grid;
-  grid-template-columns: repeat(15, 1fr);
-}
-.tile {
-    font-weight:bold;
-    display:block;
-    margin:2px;
-    font-size:3em;
-    border:2px solid black;
-    aspect-ratio: 1 / 1;
-    background:tan;
-    color:black;
-    border-radius:5px;
-    float:left;
-    box-sizing: border-box;
-}
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
-[draggable=true] {
-  cursor: move;
-}
-.clearfix:after {
-    content: ".";
-    display: block;
-    clear: both;
-    visibility: hidden;
-    line-height: 0;
-    height: 0;
-}
-.clearfix {
-    display: block;
-}
-.hide {
-  transition: 0.01s;
-  transform: translateX(-9999px);
-}
-.played {
-    color: #555;
-    border: 1px solid #555;
-}
-.valid {
-    border: 3px solid #0FFF50;
-}
-.invalid-word {
-    color:red;
-}
-.invalid {
-    border: 3px solid red !important;
-}
-.current_turn {
-    background: yellow;
-    color: orange;
-    padding:5px;
-}
-.blank {
-    color:steelblue;
-}
-</style>
