@@ -5,6 +5,7 @@ const games = ref()
 
 onMounted(() => {
     http.get('/games').then(response => {
+        console.log(response.data)
         games.value = response.data
     })
     .catch(error => {
@@ -17,6 +18,6 @@ onMounted(() => {
 
 <template>
   <h1>Games</h1>
-  <div v-for="(game) in games"><RouterLink :to="{ name: 'game', params: { id: game.game_id } }">{{game.game_id}}</RouterLink></div>
+  <div v-for="(game) in games"><RouterLink :to="{ name: 'game', params: { id: game.id } }">{{game.id}}</RouterLink></div>
 </template>
 

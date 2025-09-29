@@ -88,13 +88,15 @@ class Game(SQLModelBase, table=True):
         if not moves: return True
         return False
 
+    def opponents(self, username):
+        [x.username for x in trays if x.username != username]
+
     def scores(self):
-        scores = [{ tray.username: self.score(tray.username) } for tray in self.trays]
+        scores = [{ "username": tray.username, "score": self.score(tray.username) } for tray in self.trays]
         return scores
 
-    def score(self, user):
-        #return sum([int(x.score) for x in list(filter(lambda x: x.user == user, self.moves))])
-        total = sum([int(x.score) for x in self.moves if x.username == user and x.type == 'play'])
+    def score(self, username):
+        total = sum([int(x.score) for x in self.moves if x.username == username and x.type == 'play'])
         return total
 
     def game_over(self):

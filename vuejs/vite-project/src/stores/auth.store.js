@@ -22,7 +22,10 @@ export const useAuthStore = defineStore('auth', {
                 return JSON.parse(atob(payload))
             }
             return {}
-        }
+        },
+        isLoggedIn() {
+            return (this.token)
 
+        },
     }
 });

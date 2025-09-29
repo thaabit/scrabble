@@ -18,7 +18,7 @@ from models.Move import Move
 from auth_handler import sign_jwt, oauth2_scheme, get_authed_username, create_access_token
 
 app = FastAPI()
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 origins = [
     "http://localhost:5173",
@@ -27,7 +27,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -116,7 +116,16 @@ def list_games(auth_username: str = Depends(get_authed_username)):
         try:
             auth_user = user_by_username(auth_username)
             session.add(auth_user)
-            return auth_user.trays
+            out = []
+            for tray in auth_user.trays:
+                game = session.get(Game, tray.game_id)
+                out.append({
+                    "id": tray.game_id,
+                    "scores": game.scores(),
+                    "finished": game.game_over(),
+                })
+            return out
+
         except Exception as e:
             raise HTTPException(status_code=400, detail=e.args)
 
