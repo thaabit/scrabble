@@ -196,18 +196,23 @@ dialog {
     grid-template-columns: repeat(7, 1fr);
 }
 .tile {
-    display:inline-block;
+    display:inline-flex;
     line-height:1;
     width:4.5vmin;
     font-size: 1.7vw;
     background:black;
     color:#fff;
     z-index:1100;
+    justify-content:center;
+    align-items:center;
+}
+.tile-letter {
+    display:flex;
+    align-items:flex-end;
 }
 .board-cell .letter {
     position:relative;
     text-align: center;
-    vertical-align:-webkit-baseline-middle;
     align-self:center;
     align-items: center;
     justify-items: center;

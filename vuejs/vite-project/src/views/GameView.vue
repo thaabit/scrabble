@@ -140,7 +140,12 @@
                 v-on:dragover="allowDrop"
                 v-on:drop="swapTiles"
                 @dblclick="showBlankDialog(tile)"
-                ><span class="letter">{{ tile.sub || tile.letter }}</span><small class="points">{{ letterPoints[tile.letter] || '' }}</small></div>
+                >
+                <div class="tile-letter">
+                    <span class="letter">{{ tile.sub || tile.letter }}</span>
+                    <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+                </div>
+        </div>
 
         <!-- played tiles superimposed on board -->
         <div
@@ -152,7 +157,7 @@
             v-on:dragend="nodrop"
             draggable="true"
         >
-        <span class="letter">{{tile.sub || tile.letter}}</span><small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+        <div class="letter">{{tile.sub || tile.letter}}</div><small class="points">{{ letterPoints[tile.letter] || '' }}</small>
         </div>
     </div>
     </div>
