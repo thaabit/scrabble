@@ -8,13 +8,6 @@
             <div class="score">{{player.score}}</div>
         </div>
         </div>
-        <div
-            v-for="(score, word) in playedWords"
-            :class="{ 'invalid-word': invalidWords.includes(word) }"
-        >
-        <div>{{word}}: {{score}}</div>
-        </div>
-        <div v-if="playScore">TOTAL: {{ playScore }}</div>
         <div>Games</div>
         <div v-for="(game) in games"
             @click="changeGame(game.id)"
@@ -27,6 +20,28 @@
             <div class="user">{{ player.username === auth_username ? "You" : player.username }} </div>
             <div class="score">{{ player.score }}</div>
             </div>
+        </div>
+        <div class="unseen">
+        <span
+            v-for="(count, letter) in unseenLetters"
+        >
+        {{ letter.repeat(count) }}
+        &nbsp;
+        </span>
+        </div>
+        <div>
+            Consonants: {{ unseenConsonants }}
+            Vowels: {{ unseenVowels }}
+        </div>
+        <div v-if="playScore">
+            Words in Play
+        <div
+            v-for="(score, word) in playedWords"
+            :class="{ 'invalid-word': invalidWords.includes(word) }"
+        >
+        {{word}}: {{score}}
+        </div>
+        <div>TOTAL: {{ playScore }}</div>
         </div>
     </div>
 
@@ -184,6 +199,9 @@
     const myTurn = ref(false)
     const whose_turn = ref(null)
     const gameId = ref(route?.params?.id)
+    const unseenLetters = ref({})
+    const unseenConsonants = ref(null)
+    const unseenVowels = ref(null)
 
     watch(() => route.params.id, (newId, oldId) => {
         gameId.value = newId
@@ -247,6 +265,9 @@
         playedCoords.value = new Map
         scores.value = []
         gameOverMan.value = false
+        unseenLetters.value = []
+        unseenConsonants.value = null
+        unseenVowels.value = null
 
         if (!route?.params.id) return;
         console.log(route.params.id);
@@ -274,6 +295,9 @@
             gameOverMan.value = response.data.game_over
             whose_turn.value = response.data.whose_turn
             myTurn.value = response.data.whose_turn == auth_username && !gameOverMan.value
+            unseenLetters.value = response.data.unseen
+            unseenVowels.value = response.data.vowels
+            unseenConsonants.value = response.data.consonants
         })
         .catch(error => {
             console.log(error)
