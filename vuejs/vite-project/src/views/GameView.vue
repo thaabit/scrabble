@@ -8,10 +8,12 @@
             <div class="score">{{player.score}}</div>
         </div>
         </div>
+
+        <div class="games">
         <div>Games</div>
         <div v-for="(game) in games"
             @click="changeGame(game.id)"
-            class="games clickable"
+            class="game clickable"
         >
             <div
                 v-for="(player) in game.scores.sort((x,y) => { y.username === auth_username ? -1 : 1 })"
@@ -21,6 +23,8 @@
             <div class="score">{{ player.score }}</div>
             </div>
         </div>
+        </div>
+
         <div class="unseen">
         <span
             v-for="(count, letter) in unseenLetters"
@@ -157,7 +161,10 @@
             v-on:dragend="nodrop"
             draggable="true"
         >
-        <div class="letter">{{tile.sub || tile.letter}}</div><small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+        <div class="tile-letter">
+            <span class="letter">{{tile.sub || tile.letter}}</span>
+            <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
+        </div>
         </div>
     </div>
     </div>
