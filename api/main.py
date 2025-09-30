@@ -94,6 +94,9 @@ def read_game(id: int, auth_username: str = Depends(get_authed_username)):
             "scores":     game.scores(auth_username),
             "whose_turn": game.whose_turn(),
             "game_over":  game.game_over(),
+            "unseen":     game.unseen_tiles(auth_username),
+            "vowels":     game.unseen_vowels(auth_username),
+            "consonants": game.unseen_consonants(auth_username),
         }
 
 class GameValidation(SQLModel):
@@ -136,7 +139,7 @@ def list_games(auth_username: str = Depends(get_authed_username)):
             raise HTTPException(status_code=400, detail=e.args)
 
 @router.get("/user/{id}")
-def read_user(id: str):
+def read_user(id: str, auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         user = session.get(User, id)
         if not user:
@@ -144,7 +147,7 @@ def read_user(id: str):
         return user
 
 @router.post("/user")
-def create_user(user: UserCreate):
+def create_user(user: UserCreate, auth_username: str = Depends(get_authed_username)):
     pwhash = bcrypt.hashpw(bytes(user.password, 'utf-8'), bcrypt.gensalt(rounds=12))
     with Session(engine) as session:
         extra_data = {"pwhash": pwhash}
@@ -161,10 +164,10 @@ def create_user(user: UserCreate):
             raise HTTPException(status_code=422, detail="Username taken")
 
 @router.get("/users")
-def list_users():
+def list_users(auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         users = session.exec(select(User)).all()
-        return [user.username for user in users]
+        return [user.username for user in users if user.username != auth_username]
 
 @router.post("/move")
 def add_move(move: Move, auth_username: str = Depends(get_authed_username)):

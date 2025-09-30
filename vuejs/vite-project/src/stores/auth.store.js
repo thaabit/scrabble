@@ -29,5 +29,8 @@ export const useAuthStore = defineStore('auth', {
             }
             return {}
         },
+        authedUser() {
+            this.parseJWT().sub
+        }
     }
 });

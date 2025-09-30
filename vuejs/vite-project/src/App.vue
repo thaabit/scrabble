@@ -3,8 +3,8 @@
     import { ref, computed } from 'vue';
     import { storeToRefs } from 'pinia'
     const authStore = useAuthStore();
-    const { isAuthenticated } = storeToRefs(authStore)
-    console.log(isAuthenticated.value)
+    const { isAuthenticated, loggedInUser } = storeToRefs(authStore)
+    console.log(authStore.parseJWT().sub)
 </script>
 <template>
 <div id="top">
@@ -13,6 +13,7 @@
     <RouterLink to="/games">Games | </RouterLink>
     <RouterLink to="/friends">Friends | </RouterLink>
     <a @click="authStore.logout">Logout</a>
+    {{ authStore.parseJWT().sub }}
     </template>
 
     <template v-else>

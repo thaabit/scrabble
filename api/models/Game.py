@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, List, Optional
 from models.SQLModelBase import SQLModelBase
 from datetime import datetime
 from sqlmodel import Field, Relationship
+from collections import Counter
 import random
 import string
 import itertools
@@ -99,6 +100,18 @@ class Game(SQLModelBase, table=True):
         scores = [{ "username": tray.username, "score": self.score(tray.username) } for tray in self.trays]
         if username: scores = sorted(scores, key=lambda x: 1 if x["username"] != username else -1)
         return scores
+
+    def unseen_tiles(self, username):
+        other_trays = "".join([x.tray for x in self.trays if x.username != username])
+        return Counter(sorted(other_trays + self.bag))
+
+    def unseen_vowels(self, username):
+        u = self.unseen_tiles(username)
+        return sum([u[x] for x in u if re.match(r"[AEIOU]", x)])
+
+    def unseen_consonants(self, username):
+        u = self.unseen_tiles(username)
+        return sum([u[x] for x in u if not re.match(r"[AEIOU]", x)])
 
     def score(self, username):
         total = sum([int(x.score) for x in self.moves if x.username == username and x.type == 'play'])
