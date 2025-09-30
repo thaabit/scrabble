@@ -21,3 +21,4 @@ class UserCreate(UserBase):
 class UserUpdate(SQLModelBase):
     username: str | None = None
     password: str | None = None
+

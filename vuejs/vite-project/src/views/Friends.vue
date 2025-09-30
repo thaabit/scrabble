@@ -4,7 +4,7 @@ import { ref, onMounted } from 'vue'
 const users = ref()
 
 onMounted(() => {
-    http.get('/users').then(response => {
+    http.get('/user').then(response => {
         users.value = response.data
     })
     .catch(error => {

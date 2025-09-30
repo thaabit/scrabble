@@ -10,7 +10,7 @@
 <div id="top">
     <template v-if="isAuthenticated">
     <RouterLink to="/">Home | </RouterLink>
-    <RouterLink to="/games">Games | </RouterLink>
+    <RouterLink to="/games">Archive | </RouterLink>
     <RouterLink to="/friends">Friends | </RouterLink>
     <a @click="authStore.logout">Logout</a>
     {{ authStore.parseJWT().sub }}

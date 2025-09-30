@@ -91,7 +91,8 @@ def read_game(id: int, auth_username: str = Depends(get_authed_username)):
             "game":       game,
             "tray":       list(tray.tray),
             "moves":      game.hashedMoves(),
-            "scores":     game.scores(auth_username),
+            "scores":     game.scores(),
+            "opponent":   game.opponent(auth_username),
             "whose_turn": game.whose_turn(),
             "game_over":  game.game_over(),
             "unseen":     game.unseen_tiles(auth_username),
@@ -118,21 +119,31 @@ def create_game(args: GameValidation, username: str = Depends(get_authed_usernam
         return game
 
 @router.get("/game")
-def list_games(auth_username: str = Depends(get_authed_username)):
+def list_games(type: str = 'active', auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         try:
             auth_user = user_by_username(auth_username)
             session.add(auth_user)
             out = []
-            for tray in auth_user.trays:
-                game = session.get(Game, tray.game_id)
+            sql = f'SELECT g.id, gu.tray FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un'
+            if type == 'active':
+                sql += " AND g.finished='0000-00-00 00:00:00'"
+            if type == 'inactive':
+                sql += " AND g.finished!='0000-00-00 00:00:00'"
+            games = session.execute(text(sql), params={"un": auth_username}).fetchall()
+            for row in session.execute(text(sql), params={"un": auth_username}).fetchall():
+                game = session.get(Game, row[0])
                 out.append({
-                    "id":         tray.game_id,
-                    "scores":     game.scores(auth_username),
-                    "whose_turn": game.whose_turn(),
-                    "finished":   game.game_over(),
+                    "id":            game.id,
+                    "scores":        game.scores(),
+                    "whose_turn":    game.whose_turn(),
+                    "my_turn":       game.whose_turn() == auth_username,
+                    "started":       game.created.date(),
+                    "finished":      game.game_over(),
+                    "finished_date": game.pretty_finished_date(),
+                    "opponent":      game.opponent(auth_username),
                 })
-            out = sorted(out, key=lambda x: x["finished"])
+            out = sorted(out, key=lambda x: -1 if x['whose_turn'] == auth_username else 1 )
             return out
 
         except Exception as e:
@@ -163,7 +174,7 @@ def create_user(user: UserCreate, auth_username: str = Depends(get_authed_userna
             print(e)
             raise HTTPException(status_code=422, detail="Username taken")
 
-@router.get("/users")
+@router.get("/user")
 def list_users(auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         users = session.exec(select(User)).all()

@@ -8,6 +8,7 @@ import string
 import itertools
 import re
 import numpy as np
+from datetime import datetime
 
 if TYPE_CHECKING:
     from .models.Move import Move
@@ -96,9 +97,10 @@ class Game(SQLModelBase, table=True):
     def opponents(self, username):
         [x.username for x in trays if x.username != username]
 
-    def scores(self, username=None):
-        scores = [{ "username": tray.username, "score": self.score(tray.username) } for tray in self.trays]
-        if username: scores = sorted(scores, key=lambda x: 1 if x["username"] != username else -1)
+    def scores(self):
+        scores = {}
+        for tray in self.trays:
+            scores[tray.username] = self.score(tray.username)
         return scores
 
     def unseen_tiles(self, username):
@@ -119,6 +121,9 @@ class Game(SQLModelBase, table=True):
 
     def game_over(self):
         return False if self.finished == '0000-00-00 00:00:00' else True
+
+    def pretty_finished_date(self):
+        return self.finished.date() if self.game_over() else ''
 
     def valid_move(self, move, username):
 
@@ -336,3 +341,9 @@ class Game(SQLModelBase, table=True):
             data['value'] = LETTER_VALUES[data['letter'][0:1]]
 
         return data
+
+    def opponent(self, username):
+        return [x.username for x in self.trays if x.username != username][0]
+
+    def pretty_date(self, date):
+        return date.date()

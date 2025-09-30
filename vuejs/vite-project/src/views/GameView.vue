@@ -1,41 +1,49 @@
 <template>
 <div class="two-columns">
     <div> <!-- left - col 1 -->
-        <div v-if="gameOverMan" class="error">GAME OVER MAN</div>
-        <div class="scores">
-            <div v-for="(player) in scores.sort(player => { player.username === auth_username ? 1 : -1 })" class="scores" :class="(whose_turn === player.username) ? 'current' : ''" >
-            <div class="user">{{ player.username === auth_username ? "You" : player.username }} </div>
-            <div class="score">{{player.score}}</div>
-        </div>
+        <div v-if="curGame?.finished" class="error">GAME OVER MAN</div>
+
+        <div v-if="curGame" class="scores">
+            <div :class="(myTurn) ? 'current' : ''" >
+                <div class="user">You</div>
+                <div class="score">{{curGame.scores[auth_username]}}</div>
+            </div>
+            <div :class="(!myTurn) ? 'current' : ''" >
+                <div class="user">{{curGame.opponent}}</div>
+                <div class="score">{{curGame.scores[curGame.opponent]}}</div>
+            </div>
         </div>
 
         <div class="games">
-        <div>Games</div>
+        <div class="title">Active Games</div>
         <div v-for="(game) in games"
             @click="changeGame(game.id)"
             class="game clickable"
         >
-            <div
-                v-for="(player) in game.scores.sort((x,y) => { y.username === auth_username ? -1 : 1 })"
-                :class="(player.username === game.whose_turn && !game.finished) ? 'current' : ''"
-            >
-            <div class="user">{{ player.username === auth_username ? "You" : player.username }} </div>
-            <div class="score">{{ player.score }}</div>
-            </div>
+        <div :class="(game.my_turn) ? 'current' : ''">
+            <div class="user">You</div>
+            <div class="score">{{ game.scores[auth_username] }}</div>
+        </div>
+        <div :class="(!game.my_turn) ? 'current' : ''">
+            <div class="user">{{ game.opponent }}</div>
+            <div class="score">{{ game.scores[game.opponent] }}</div>
+        </div>
         </div>
         </div>
 
-        <div class="unseen">
-        <span
-            v-for="(count, letter) in unseenLetters"
-        >
-        {{ letter.repeat(count) }}
-        &nbsp;
-        </span>
-        </div>
+        <div class="unseen" v-if="curGame">
+            <div class="title">Unseen Tiles</div>
+            <div class="box">
+                <span v-for="(count, letter) in unseenLetters">
+                {{ letter.repeat(count) }}
+                &nbsp;
+                </span>
+                <br><br>
+                <div>{{ unseenVowels + unseenConsonants }} tiles</div>
+                <div>{{ unseenVowels }} vowels | {{ unseenConsonants }} consonants</div>
+            </div>
+            </div>
         <div>
-            Consonants: {{ unseenConsonants }}
-            Vowels: {{ unseenVowels }}
         </div>
         <div v-if="playScore">
             Words in Play
@@ -94,7 +102,7 @@
         </div>
     </Dialog>
 
-    <div class="scrabble-board" id="board">
+    <div class="board" id="board">
 
         <!-- underlying board -->
         <template v-for="(row, rowIndex) in board">
@@ -214,6 +222,7 @@
     const unseenLetters = ref({})
     const unseenConsonants = ref(null)
     const unseenVowels = ref(null)
+    const curGame = ref(false)
 
     watch(() => route.params.id, (newId, oldId) => {
         gameId.value = newId
@@ -253,10 +262,9 @@
     }
 
     function refreshGameList() {
-        http.get('/game').then(response => {
+        http.get('/game?type=active').then(response => {
             console.log(response.data)
             games.value = response.data.filter(game => {
-            console.log(game.id, route.params.id, gameId.value, Number(route.params.id))
                 return Number(game.id) !== Number(route.params.id)
             })
         })
@@ -280,6 +288,7 @@
         unseenLetters.value = []
         unseenConsonants.value = null
         unseenVowels.value = null
+        curGame.value = false
 
         if (!route?.params.id) return;
         console.log(route.params.id);
@@ -303,6 +312,8 @@
                     //playedCoords.value.push([tile.row, tile.col])
                 })
             })
+            curGame.value = response.data
+            console.log(curGame.value)
             scores.value = response.data.scores
             gameOverMan.value = response.data.game_over
             whose_turn.value = response.data.whose_turn

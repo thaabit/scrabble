@@ -105,10 +105,9 @@ button:focus-visible {
 .rack-bumper {
     border-radius:5px;
 }
-.scrabble-board {
-  gap: 0;
-  margin:0;
-  width:80vmin;
+.board {
+  gap: 1px;
+  width:72vmin;
   display: grid;
   grid-template-columns: repeat(15, 1fr);
   border: 2px solid #333;
@@ -131,12 +130,7 @@ button:focus-visible {
   aspect-ratio: 1 / 1;
   border: 1px solid #aaa;
   background: #F8F8F8;
-  margin:2px;
   border-radius:5px;
-  display:inline;
-  vertical-align: middle;
-  align-items: center;
-  justify-items: center;
 }
 
 .triple-word {
@@ -158,7 +152,7 @@ button:focus-visible {
 }
 
 .center {
-  background: #ffd93d;
+  background: darkorange;
 }
 
 .points {
@@ -218,8 +212,6 @@ dialog {
     justify-items: center;
 }
 small.points {
-    margin:0;
-    padding:0;
     color:inherit;
     vertical-align:bottom;
 }
@@ -289,6 +281,7 @@ a:hover {
 .scores .current {
     background: yellow;
     color: orange;
+    border-radius: 15px;
 }
 .games {
     height:40vmin;
@@ -317,4 +310,13 @@ a:hover {
 }
 .games .over {
     font-weight: bold;
+}
+.title {
+    font-weight:bold;
+    font-size:larger;
+}
+.box {
+    border-radius:10px;
+    background:#777;
+    padding:10px;
 }
