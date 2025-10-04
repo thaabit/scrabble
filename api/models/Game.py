@@ -34,7 +34,7 @@ for key in value_of_letters:
 TWS_COORDS = [(0,0), (0,7), (0,14), (7,0), (7,14), (14,0), (14,7), (14,14)]
 DLS_COORDS = [(0,3), (0,11), (2,6), (2,8), (3,0), (3,7), (3,14), (6,2), (6,6), (6,8), (6,12), (7,3), (7,11), (8,2), (8,6), (8,8), (8,12), (11,0), (11,7), (11,14), (12,6), (12,8), (14,3), (14,11)]
 DWS_COORDS = [(1,1), (1,13), (2,2), (2,12), (3,3), (3,11), (4,4), (4,10), (7,7), (13,1), (13,13), (12,2), (12,12), (11,3), (11,11), (10,4), (10,10)]
-TLS_COORDS = [(1,5), (1,9), (5,1), (5,5), (5,9), (5,13), (13,5), (13,9)]
+TLS_COORDS = [(1,5), (1,9), (5,1), (5,5), (5,9), (5,13), (9,1), (9,5), (9,9), (9,13), (13,5), (13,9)]
 MAX_COLUMN = 14
 MAX_ROW = 14
 
@@ -46,7 +46,30 @@ class Game(SQLModelBase, table=True):
     moves: List["Move"] = Relationship(back_populates = "game")
     trays: List["GameUser"] = Relationship(back_populates = "game")
 
-    def hashedMoves(self):
+    def users(self):
+        return [x.username for x in self.trays]
+
+    def moves_with_tally(self, auth_username):
+        tallies = dict(zip(self.users(), [0] * len(self.users())))
+        out = []
+        for move in self.moves:
+            is_authed = (move.username == auth_username)
+            fancy_move = {
+                "tally": tallies[move.username],
+                "username":  move.username,
+                "score":     move.score,
+                "data":      move.data,
+                "main_word": move.main_word,
+                "type":      move.type,
+                "rack":      move.rack if is_authed else '',
+            };
+            if move.type == "exchange":
+                fancy_move['exchange'] = '-' + (str(len(move.data)) if not is_authed else move.data)
+            out.append(fancy_move)
+            tallies[move.username] += move.score
+        return out
+
+    def hashed_moves(self):
         out = []
         for move in [x for x in self.moves if x.type == 'play']:
             letters = move.data.split("::")
@@ -134,6 +157,7 @@ class Game(SQLModelBase, table=True):
         if self.whose_turn() != username: raise Exception("It is not your turn")
         tray = self.current_user_tray()
         current_user_letters = list(tray.tray)
+        move.rack = "".join(current_user_letters)
 
         if move.type == 'play':
 
@@ -167,7 +191,6 @@ class Game(SQLModelBase, table=True):
             if not (horizontal or vertical): raise Exception("All letters must be in same row or column")
 
             # must connect to existing letter
-            print(sorted(board_tiles))
             if not first_move:
                 found_connection = False
                 sides = [(0,1),(0,-1),(1,0),(-1,0)]
@@ -224,6 +247,7 @@ class Game(SQLModelBase, table=True):
                 score += self.score_word(word)
             if len(play_tiles) == 7: score += 50 # BINGO
             move.score = score
+            move.main_word = "".join([f"({x['letter']})" if "existing" in x else x["letter"] for x in main_word])
 
             # cleanup, remove used tiles and redraw
             self.update_tray(username, current_user_letters)
@@ -339,6 +363,7 @@ class Game(SQLModelBase, table=True):
         else:
             data['letter'] = board[coords[0]][coords[1]]
             data['value'] = LETTER_VALUES[data['letter'][0:1]]
+            data['existing'] = True
 
         return data
 

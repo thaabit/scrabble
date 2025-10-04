@@ -1,9 +1,9 @@
 <template>
-<div class="two-columns">
-    <div> <!-- left - col 1 -->
+<div class="three-columns">
+    <div class="hide-mobile"> <!-- left col -->
         <div v-if="curGame?.finished" class="error">GAME OVER MAN</div>
 
-        <div v-if="curGame" class="scores">
+        <div v-if="curGame" class="cur-game">
             <div :class="(myTurn) ? 'current' : ''" >
                 <div class="user">You</div>
                 <div class="score">{{curGame.scores[auth_username]}}</div>
@@ -13,24 +13,23 @@
                 <div class="score">{{curGame.scores[curGame.opponent]}}</div>
             </div>
         </div>
-
-        <div class="games">
+        <br><br>
         <div class="title">Active Games</div>
+        <div class="other-games">
         <div v-for="(game) in games"
             @click="changeGame(game.id)"
             class="game clickable"
         >
         <div :class="(game.my_turn) ? 'current' : ''">
-            <div class="user">You</div>
-            <div class="score">{{ game.scores[auth_username] }}</div>
+            <div class="user">You {{ game.scores[auth_username] }}</div>
         </div>
         <div :class="(!game.my_turn) ? 'current' : ''">
-            <div class="user">{{ game.opponent }}</div>
-            <div class="score">{{ game.scores[game.opponent] }}</div>
+            <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
         </div>
         </div>
         </div>
 
+        <br><br>
         <div class="unseen" v-if="curGame">
             <div class="title">Unseen Tiles</div>
             <div class="box">
@@ -55,9 +54,9 @@
         </div>
         <div>TOTAL: {{ playScore }}</div>
         </div>
-    </div>
+    </div> <!-- end lef col -->
 
-    <div class="centerize"> <!-- main column -->
+    <div class="centerize"> <!-- main col begin -->
     <Dialog ref="dialogPass">
         <div>You sure about that?</div>
         <button @click="pass(true)">Pass</button>
@@ -81,7 +80,7 @@
                 v-on:drop="exchangeDrop"
             ></div>
             <div
-                v-for="(tile, col) in rackLetters"
+                v-for="(tile, col) in playerTiles"
                 :key="`exchange-letter-${col}`"
                 class="board-cell tile"
                 :letter="tile.letter"
@@ -112,6 +111,7 @@
                         v-on:drop="drop"
                         v-on:dragover="allowDrop"
                         :style="{gridColumn: colIndex + 1, gridRow: rowIndex + 1}"
+                        @click="placeMarker"
                         >
                         {{ getBonusText(cell.type) }}
                 </div>
@@ -140,9 +140,9 @@
 
         <!-- User Tiles -->
         <div
-                v-for="(tile, index) in rackLetters"
+                v-for="(tile, index) in playerTiles"
                 :key="`tile-${index}`"
-                :class="['bonus-text','board-cell','tile', validClass(tile), tile.sub ? 'blank' : '']"
+                :class="['tile', validClass(tile), tile.sub ? 'blank' : '']"
                 :style="{gridColumn: tile.col, gridRow: tile.row}"
                 draggable="true"
                 :letter="tile.letter"
@@ -161,9 +161,9 @@
 
         <!-- played tiles superimposed on board -->
         <div
-            v-for="(tile, index) in playedTiles"
+            v-for="(tile, index) in existingTiles"
             :key="`played-${index}`"
-            :class="['bonus-text','board-cell', 'tile', 'played', tile.sub ? 'blank' : '']"
+            :class="['tile', 'played', tile.sub ? 'blank' : '']"
             :style="{gridColumn: tile.col, gridRow: tile.row}"
             v-on:dragstart="dragging"
             v-on:dragend="nodrop"
@@ -173,10 +173,26 @@
             <span class="letter">{{tile.sub || tile.letter}}</span>
             <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
         </div>
+    </div>
+    <div @click="changeDirection" ref="marker" class="hidden marker" style="grid-area: 8 / 8">&#9654;</div>
+    </div> <!-- board end -->
+    </div> <!-- main col end -->
+
+    <div> <!-- column 3 -->
+
+        <!-- moves -->
+        <div class="moves">
+        <div v-for="(move) in curGame.moves" :class="['move', move.username===auth_username ? 'you' : '']">
+            <div>{{ move.username }}</div>
+            <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
+            <div>{{ move.tally }} +{{ move.score }}</div>
+            <div></div>
+            <div>{{move.rack}}</div>
+            <div>{{ move.tally + move.score }}</div>
         </div>
-    </div>
-    </div>
-    </div>
+        </div>
+    </div> <!-- column 3 -->
+    </div> <!-- three column grid -->
 </template>
 <script setup>
     import { http } from '@/helpers/api.js';
@@ -187,13 +203,15 @@
     import Dialog from '@/components/Dialog.vue'
 
     const route = useRoute()
-    const rackLetters = ref([])
+    const playerTiles = ref([])
     const validPlay = ref(false);
     const board = ref([])
-    const playedTiles = ref([])
+    const existingTiles = ref([])
     const playedCoords = ref(new Map)
     const scores = ref([])
     const games = ref([])
+    const marker = ref(null)
+    const textRight = ref(true)
 
     const auth_username = useAuthStore().parseJWT().sub
     const rackRow = 16
@@ -235,16 +253,186 @@
         initializeBoard()
         refreshGame()
         interval = setInterval(checkRefreshGame, 1000*60)
+            window.addEventListener('keydown', function(e) {
+                handleKeyPress(e);
+            });
     })
 
     onUnmounted(() => {
         clearInterval(interval);
     });
 
+    function compareTiles(a,b) {
+        if (playDirection() == 'horizontal') {
+            return a.col - b.col
+        }
+        else {
+            return a.row - b.row
+        }
+
+    }
+
+    function lastTile() {
+        let sorted = tilesOnBoard().sort(compareTiles);
+        return sorted[sorted.length - 1]
+    }
+
+    function removeTileAt(row, col) {
+        let tile = tileAt(row, col)
+        if (!tile) return false
+
+        if (tile.row != rackRow) {
+            delete board.value[tile.row-1][tile.col-1].letter
+            delete board.value[tile.row-1][tile.col-1].value
+            delete board.value[tile.row-1][tile.col-1].sub
+        }
+        let openCols = openTrayCols()
+        tile.col = openCols.shift()
+        tile.row = rackRow
+        scorePlay()
+        return true;
+    }
+
+    function showMarker() {
+        marker.value.classList.remove("hidden")
+        marker.value.style.gridRow = 8
+        marker.value.style.gridColumn = 7
+        bumpMarker('right')
+    }
+
+    function handleKeyPress(e) {
+        const key = e.key.toUpperCase()
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        let dirs = {
+            ARROWLEFT:  'left',
+            ARROWRIGHT: 'right',
+            ARROWUP:    'up',
+            ARROWDOWN:  'down',
+        }
+        if (key == 'BACKSPACE') {
+            bumpMarker(textRight.value ? 'left' : 'up', true)
+        }
+        else if (key == ' ') {
+            changeDirection()
+        }
+        else if (key == 'ESCAPE') {
+            recallTiles()
+        }
+        else if (key == 'ENTER') {
+            if (myTurn.value && validPlay.value) {
+                play()
+            }
+        }
+        else if (dirs[key]) {
+            e.preventDefault()
+            bumpMarker(dirs[key])
+        }
+        else if (alphabet.includes(key)) {
+            let found = tilesOnRack().some(tile => {
+                if (tile.letter === key) {
+                    let row = Number(marker.value.style.gridRow)
+                    let col = Number(marker.value.style.gridColumn)
+                    placeTile(tile, row, col)
+                    bumpMarker(textRight.value ? 'right' : 'down')
+                    return true
+                }
+                return false
+            })
+
+            if (!found) {
+                tilesOnRack().some(tile => {
+                    if (tile.letter === '?') {
+                        let row = Number(marker.value.style.gridRow)
+                        let col = Number(marker.value.style.gridColumn)
+                        blankTile.value = tile
+                        pickBlankReplacement(key)
+                        placeTile(tile, row, col)
+                        bumpMarker(textRight.value ? 'right' : 'down')
+                        return true
+                    }
+                    return false
+                })
+            }
+        }
+    }
+
+    function nextSquare(row, col, dir) {
+        switch (dir) {
+        case 'right':
+            col++
+            if (col > 15) {
+                col = 1
+                row = row === 15 ? 1 : row + 1
+            }
+            break;
+        case 'left':
+            col--;
+            if (col < 1) {
+                col = 15
+                row = row === 1 ? 15 : row - 1
+            }
+            break;
+        case 'up':
+            row--
+            if (row < 1) {
+                row = 15
+                col = col === 1 ? 15 : col - 1
+            }
+            break;
+        case 'down':
+            row++
+            if (row > 15) {
+                row = 1
+                col = col === 15 ? 1 : col + 1
+            }
+            break;
+        }
+        return [row, col]
+    }
+
+    function boardAt(row, col) {
+        return board.value[row - 1][col - 1]
+    }
+
+    // bump marker past any existing tiles
+    function bumpMarker(dir, clobber=false) {
+        let [row, col] = nextSquare(Number(marker.value.style.gridRow), Number(marker.value.style.gridColumn), dir)
+        let count = 0
+        if (clobber) {
+            let tile = lastTile()
+            if (tile) {
+                row = tile.row
+                col = tile.col
+                removeTileAt(row, col)
+            }
+        }
+        let square = boardAt(row, col)
+        while (square && (square.previous || square.letter)) {
+            [row, col] = nextSquare(row, col, dir)
+            count++
+            if (count > 20) break
+            square = boardAt(row, col)
+        }
+
+        marker.value.style.gridRow = row
+        marker.value.style.gridColumn = col
+    }
+
     function changeGame(id) {
         if (id != route?.params?.id) {
             router.push(`/game/${id}`)
         }
+    }
+
+    function changeDirection() {
+        textRight.value = !textRight.value
+        marker.value.innerHTML = textRight.value ? '&#9654;' : '&#x25BC'
+    }
+
+    function placeMarker(e) {
+        marker.value.style.gridRow = Number(e.target.style.gridRow)
+        marker.value.style.gridColumn = Number(e.target.style.gridColumn)
+        marker.value.style.display = 'inline-flex'
     }
 
     function checkRefreshGame() {
@@ -263,7 +451,6 @@
 
     function refreshGameList() {
         http.get('/game?type=active').then(response => {
-            console.log(response.data)
             games.value = response.data.filter(game => {
                 return Number(game.id) !== Number(route.params.id)
             })
@@ -278,9 +465,9 @@
         refreshGameList()
 
         playedWords.value = {}
-        playedTiles.value = []
+        existingTiles.value = []
         playScore.value = 0
-        rackLetters.value = []
+        playerTiles.value = []
         exchangeNo.value = []
         playedCoords.value = new Map
         scores.value = []
@@ -290,20 +477,21 @@
         unseenVowels.value = null
         curGame.value = false
 
+
         if (!route?.params.id) return;
-        console.log(route.params.id);
         http.get('/game/' + route.params.id).then(response => {
             let rack_start = 5
             response.data.tray.forEach(letter => {
-                rackLetters.value.push({
+                playerTiles.value.push({
+                    index:  letter + rack_start,
                     letter: letter,
                     row:    rackRow,
                     col:    rack_start++,
                 })
                 exchangeNo.value.push(letter)
             })
-            response.data.moves.forEach(move => {
-                playedTiles.value.push(...move)
+            response.data.played_tiles.forEach(move => {
+                existingTiles.value.push(...move)
                 move.forEach(tile => {
                     playedCoords.value.set(coordsKey(tile.row, tile.col), tile.letter);
                     board.value[tile.row - 1][tile.col - 1].previous = tile.letter
@@ -313,7 +501,6 @@
                 })
             })
             curGame.value = response.data
-            console.log(curGame.value)
             scores.value = response.data.scores
             gameOverMan.value = response.data.game_over
             whose_turn.value = response.data.whose_turn
@@ -321,6 +508,7 @@
             unseenLetters.value = response.data.unseen
             unseenVowels.value = response.data.vowels
             unseenConsonants.value = response.data.consonants
+            showMarker()
         })
         .catch(error => {
             console.log(error)
@@ -588,22 +776,22 @@
     }
 
     function tilesOnBoard() {
-        return rackLetters.value.filter(tile => tile.row !== rackRow)
+        return playerTiles.value.filter(tile => tile.row !== rackRow)
     }
 
-    function rackedLetters() {
-        return rackLetters.value.filter(tile => tile.row === rackRow)
+    function tilesOnRack() {
+        return playerTiles.value.filter(tile => tile.row === rackRow)
     }
 
     function openTrayCols() {
-        let taken = rackedLetters().map(tile => tile.col);
+        let taken = tilesOnRack().map(tile => tile.col);
         let trayCols = Array.from(new Array(7), (x, i) => i + rackStart);
         return trayCols.filter(index => !taken.includes(index))
     }
 
     function recallTiles() {
         let openCols = openTrayCols()
-        rackLetters.value.forEach(tile => {
+        playerTiles.value.forEach(tile => {
             if (tile.row !== rackRow) {
             tile.row = rackRow
             tile.col = openCols.shift()
@@ -613,8 +801,8 @@
     }
 
     function shuffleTray() {
-        let rando = [...Array(rackedLetters().length).keys()].sort(() => Math.random() - 0.5);
-        rackLetters.value.forEach(tile => {
+        let rando = [...Array(tilesOnRack().length).keys()].sort(() => Math.random() - 0.5);
+        playerTiles.value.forEach(tile => {
             if (tile.row === rackRow) tile.col = rando.pop() + rackStart
         })
     }
@@ -629,6 +817,7 @@
         if (row != rackRow) {
             delete board.value[row-1][col-1].letter
             delete board.value[row-1][col-1].value
+            delete board.value[row-1][col-1].sub
         }
     }
 
@@ -638,8 +827,8 @@
 
     function swapTiles(e) {
         // two tiles
-        let a = rackLetters.value[e.target.getAttribute("index")];
-        let b = rackLetters.value[e.dataTransfer.getData("index")]
+        let a = playerTiles.value[e.target.getAttribute("index")];
+        let b = playerTiles.value[e.dataTransfer.getData("index")]
 
         // swap tiles
         a.row = [b.row, b.row = a.row][0]; // swap row of tiles
@@ -656,7 +845,12 @@
 
         // tile
         let data = e.dataTransfer;
-        let tile = rackLetters.value[data.getData("index")]
+        let tile = playerTiles.value[data.getData("index")]
+        placeTile(tile, row, col)
+    }
+
+    let placedTiles = []
+    function placeTile(tile, row, col) {
         tile.col = col
         tile.row = row
         tile.onboard = row != rackRow
@@ -664,6 +858,7 @@
             board.value[row-1][col-1].letter = tile.letter
             if (tile.sub) board.value[row-1][col-1].sub = tile.sub
             board.value[row-1][col-1].value = modifiedLetterValue(letterPoints[tile.letter], row, col)
+            placedTiles.push(tile)
         }
 
         scorePlay()
