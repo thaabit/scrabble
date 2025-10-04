@@ -44,7 +44,6 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vmin;
 }
@@ -55,10 +54,8 @@ h1 {
 }
 
 button {
-  border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
-  font-size: 1vmin;
   font-weight: 500;
   font-family: inherit;
   background-color: #1a1a1a;
@@ -73,14 +70,78 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-.card {
-  padding: 2em;
+/* MOBILE */
+@media screen and (max-width: 768px) {
+    .hide-mobile  { display: none; }
+    .board { 
+        width:100%;
+    }
+    #app {
+        margin: 2rem auto;
+    }
+    .board-cell, .tile, .marker {
+        width:6.3vmin;
+        font-size: 4vmin;
+    }
+    .board-cell {
+        font-size: 3vmin;
+    }
+    button {
+        font-size: 3vmin;
+        padding:2px;
+        border-radius:5px;
+    }
+    .box {
+        padding:10px;
+        font-size:2.5vmin;
+    }
+    .scores .score {
+        font-size:4.5vmin;
+    }
+    .game {
+        margin-bottom:10px;
+        font-size:4vmin;
+    }
 }
-
-#app {
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* DESKTOP */
+@media screen and (min-width: 768px) {
+    .hide-non-mobile  { display: none; }
+    .board {
+        width:72vh;
+        padding: 16px;
+    }
+    #app {
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    .tile, .marker {
+        width:4.5vh;
+        font-size: 2.7vh;
+    }
+    .board-cell {
+        width:4.5vh;
+        font-size: 1.7vh;
+    }
+    button {
+        font-size: 1vh;
+        border-radius: 8px;
+    }
+    .box {
+        padding:10px;
+        font-size:1.3vh;
+    }
+    .cur-game .score {
+        padding:5px 10px;
+        font-size:3.5vh;
+    }
+    .cur-game .user {
+        padding:10px;
+        font-size:1.8vh;
+    }
+    .game {
+        margin-bottom:10px;
+        font-size:2vh;
+    }
 }
 
 @media (prefers-color-scheme: light) {
@@ -96,10 +157,10 @@ button:focus-visible {
   }
 }
 
-.two-columns {
+.three-columns {
     display:grid;
-    grid-template-columns: 1fr 4fr;
-    gap: 10px;
+    grid-template-columns: 1fr 4fr 1fr;
+    gap: 40px;
 }
 
 .rack-bumper {
@@ -107,11 +168,9 @@ button:focus-visible {
 }
 .board {
   gap: 1px;
-  width:72vmin;
   display: grid;
   grid-template-columns: repeat(15, 1fr);
   border: 2px solid #333;
-  padding: 16px;
   background: #aaa;
   border-radius:15px;
   box-sizing: border-box;
@@ -125,12 +184,15 @@ button:focus-visible {
   justify-items: center;
 }
 .board-cell {
-  width:4.5vmin;
-  font-weight:bold;
-  aspect-ratio: 1 / 1;
-  border: 1px solid #aaa;
-  background: #F8F8F8;
-  border-radius:5px;
+    font-weight:bold;
+    aspect-ratio: 1 / 1;
+    border: 1px solid #aaa;
+    background: #F8F8F8;
+    border-radius:5px;
+    display:inline-flex;
+    line-height:1;
+    justify-content:center;
+    align-items:center;
 }
 
 .triple-word {
@@ -163,7 +225,6 @@ button:focus-visible {
 }
 
 .bonus-text {
-  font-size: 1vw;
   color: white;
 }
 
@@ -192,17 +253,32 @@ dialog {
 .tile {
     display:inline-flex;
     line-height:1;
-    width:4.5vmin;
-    font-size: 1.7vw;
     background:black;
     color:#fff;
     z-index:1100;
     justify-content:center;
     align-items:center;
+    font-weight:bold;
+    aspect-ratio: 1 / 1;
+    border:1px solid #aaa;
+    border-radius:5px;
 }
 .tile-letter {
     display:flex;
     align-items:flex-end;
+}
+.marker {
+    display:inline-flex;
+    line-height:1;
+    background:white;
+    color:blue;
+    z-index:1100;
+    justify-content:center;
+    align-items:center;
+    font-weight:bold;
+    aspect-ratio: 1 / 1;
+    border:2px solid blue;
+    border-radius:5px;
 }
 .board-cell .letter {
     position:relative;
@@ -264,59 +340,88 @@ small.points {
 a:hover {
     cursor:pointer;
 }
-.scores {
+.cur-game {
     display: grid;
     grid-template-columns: 1fr 1fr;
     background:#aaa;
     border-radius:15px;
 }
-.scores .score {
-    font-size:4.5vmin;
-}
-.scores .user {
+.cur-game .user {
     font-weight: bold;
-    font-size: 1.5vw;
     padding:10px;
 }
-.scores .current {
+.cur-game .current {
     background: yellow;
     color: orange;
     border-radius: 15px;
 }
-.games {
+.other-games {
     height:40vmin;
     overflow-y:scroll;
 }
-.game {
-    display: grid;
+
+.other-games .game {
+    display:grid;
     grid-template-columns: 1fr 1fr;
     background:#555;
     border-radius:5px;
     margin-bottom:10px;
 }
-.game .score {
-    font-size:2vw;
+.other-games .user {
+    font-weight: bold;
+    padding:5px;
 }
-.game .current {
+.other-games .over {
+    font-weight: bold;
+}
+.other-games .game .current {
     background: #D12A24;
     color: orange;
     border-radius:5px;
 }
+.other-games .score {
+    padding:5px;
+}
+.other-games .game:hover {
+    border:1px solid yellow;
+}
+
 .clickable {
     cursor: pointer;
 }
-.games .user {
-    font-weight: bold;
-}
-.games .over {
-    font-weight: bold;
-}
 .title {
     font-weight:bold;
-    font-size:larger;
+    font-size:2.1vmin;
 }
 .box {
     border-radius:10px;
     background:#777;
     padding:10px;
+}
+.moves {
+    height: 30vh;
+    overflow-y:scroll;
+}
+.moves .move {
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-radius: 15px;
+    background: #aaa;
+    margin-bottom:5px;
+    padding:5px;
+    color:#555;
+    font-weight:bold;
+    white-space: nowrap;
+}
+div.move div:nth-child(3n) {
+    justify-self: end;
+}
+.exchange {
+    color:red;
+}
+.you {
+    background:green !important;
+}
+.hidden {
+    display:none;
 }

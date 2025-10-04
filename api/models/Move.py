@@ -19,6 +19,8 @@ class Move(SQLModelBase, table=True):
     username: str = Field(foreign_key="user.username")
     type: str | None = Field(default='play')
     data: str
+    main_word: Optional[str] = ''
+    rack: Optional[str] = ''
     score: int | None = 0
     game: Optional["Game"] = Relationship(back_populates="moves")
 

@@ -49,7 +49,7 @@ def user_by_username(username):
 @router.post("/login")
 async def login_for_access_token(json: LoginValidation):
     with Session(engine) as session:
-        query = select(User).where(User.username == json.username)
+        query = select(User).where(User.username == json.username.strip())
         try:
             user = session.exec(query).one()
             if user is None or not bcrypt.checkpw(bytes(json.password,'utf-8'), bytes(user.pwhash, 'utf-8')):
@@ -88,16 +88,17 @@ def read_game(id: int, auth_username: str = Depends(get_authed_username)):
         if not game:
             raise HTTPException(status_code=404, detail="Game not found")
         return {
-            "game":       game,
-            "tray":       list(tray.tray),
-            "moves":      game.hashedMoves(),
-            "scores":     game.scores(),
-            "opponent":   game.opponent(auth_username),
-            "whose_turn": game.whose_turn(),
-            "game_over":  game.game_over(),
-            "unseen":     game.unseen_tiles(auth_username),
-            "vowels":     game.unseen_vowels(auth_username),
-            "consonants": game.unseen_consonants(auth_username),
+            "game":         game,
+            "tray":         list(tray.tray),
+            "played_tiles": game.hashed_moves(),
+            "moves":        list(reversed(game.moves_with_tally(auth_username))),
+            "scores":       game.scores(),
+            "opponent":     game.opponent(auth_username),
+            "whose_turn":   game.whose_turn(),
+            "game_over":    game.game_over(),
+            "unseen":       game.unseen_tiles(auth_username),
+            "vowels":       game.unseen_vowels(auth_username),
+            "consonants":   game.unseen_consonants(auth_username),
         }
 
 class GameValidation(SQLModel):
@@ -163,6 +164,7 @@ def create_user(user: UserCreate, auth_username: str = Depends(get_authed_userna
     with Session(engine) as session:
         extra_data = {"pwhash": pwhash}
         db_user = User.model_validate(user, update=extra_data)
+        db_user.username = db_user.username.strip()
         try:
             session.add(db_user)
             session.commit()
