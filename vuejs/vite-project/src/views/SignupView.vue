@@ -14,6 +14,7 @@ import { http } from '@/helpers/api.js';
 import { Form, Field } from 'vee-validate'
 import * as Yup from 'yup'
 import { router } from '@/helpers/router.js';
+import { useAuthStore } from '@/stores/auth.store.js'
 
 const apiError = ref(null)
 const schema = Yup.object().shape({
@@ -33,8 +34,8 @@ function signup(values) {
         router.push('/')
     })
     .catch(error => {
-        const msg = error.response.data?.detail || error.statusText;
         console.error('Signup Error:', error);
+        const msg = error.response.data?.detail || error.statusText;
         console.log(msg)
         apiError.value = msg
     });

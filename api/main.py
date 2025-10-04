@@ -159,7 +159,7 @@ def read_user(id: str, auth_username: str = Depends(get_authed_username)):
         return user
 
 @router.post("/user")
-def create_user(user: UserCreate, auth_username: str = Depends(get_authed_username)):
+def create_user(user: UserCreate):
     pwhash = bcrypt.hashpw(bytes(user.password, 'utf-8'), bcrypt.gensalt(rounds=12))
     with Session(engine) as session:
         extra_data = {"pwhash": pwhash}
