@@ -1,6 +1,7 @@
 <script setup>
 import { http } from '@/helpers/api.js';
 import { ref, onMounted } from 'vue'
+import { router } from '@/helpers/router.js';
 const users = ref()
 
 onMounted(() => {
@@ -15,7 +16,7 @@ onMounted(() => {
 
 function newGame(other_user) {
     http.post('/game', { opponent: other_user }).then(response => {
-        console.log(response)
+        router.push(`/game/${response.data.id}`)
     })
     .catch(error => {
         const msg = (error.data && error.data.detail) || error.statusText;
