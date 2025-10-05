@@ -73,7 +73,7 @@ button:focus-visible {
 /* MOBILE */
 @media screen and (max-width: 768px) {
     .hide-mobile  { display: none; }
-    .board { 
+    .board {
         width:100%;
     }
     #app {
@@ -107,8 +107,9 @@ button:focus-visible {
 @media screen and (min-width: 768px) {
     .hide-non-mobile  { display: none; }
     .board {
-        width:72vh;
+        width:auto;
         padding: 16px;
+        gap:1px;
     }
     #app {
         margin: 0 auto;
@@ -159,8 +160,9 @@ button:focus-visible {
 
 .three-columns {
     display:grid;
-    grid-template-columns: 1fr 4fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 40px;
+    max-width:1600px;
 }
 
 .rack-bumper {
@@ -169,11 +171,10 @@ button:focus-visible {
 .board {
   gap: 1px;
   display: grid;
-  grid-template-columns: repeat(15, 1fr);
+  grid-template-columns: repeat(15, 1fr) / repeat(15, 1fr);
   border: 2px solid #333;
   background: #aaa;
   border-radius:15px;
-  box-sizing: border-box;
   align-items: center;
   justify-items: center;
 }

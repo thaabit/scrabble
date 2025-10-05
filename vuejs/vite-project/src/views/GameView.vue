@@ -174,7 +174,14 @@
             <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
         </div>
     </div>
-    <div @click="changeDirection" ref="marker" class="hidden marker" style="grid-area: 8 / 8">&#9654;</div>
+    <div
+        @click="changeDirection"
+        ref="marker"
+        class="hidden marker"
+        style="grid-area: 8 / 8"
+        @dragover="allowDrop"
+        v-on:drop="dropOnMarker"
+    >&#9654;</div>
     </div> <!-- board end -->
     </div> <!-- main col end -->
 
@@ -395,7 +402,7 @@
     }
 
     // bump marker past any existing tiles
-    function bumpMarker(dir, clobber=false) {
+    function bumpMarker(dir=textRight.value ? 'right' : 'down', clobber=false) {
         let [row, col] = nextSquare(Number(marker.value.style.gridRow), Number(marker.value.style.gridColumn), dir)
         let count = 0
         if (clobber) {
@@ -454,6 +461,10 @@
             games.value = response.data.filter(game => {
                 return Number(game.id) !== Number(route.params.id)
             })
+            let turns_count = response.data.filter(game => {
+                return game.whose_turn === auth_username
+            }).length
+            document.title = turns_count > 0 ? `(${turns_count}) - Games` : 'Games'
         })
         .catch(error => {
             const msg = (error.data && error.data.detail) || error.statusText;
@@ -833,6 +844,11 @@
         // swap tiles
         a.row = [b.row, b.row = a.row][0]; // swap row of tiles
         a.col = [b.col, b.col = a.col][0]; // swap col of tiles
+    }
+
+    function dropOnMarker(e) {
+        drop(e)
+        bumpMarker()
     }
 
     function drop(e) {

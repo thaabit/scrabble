@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vueuse/core": "^13.9.0",
     "axios": "^1.12.2",
     "eslint": "^9.36.0",
     "lint": "^1.1.2",
