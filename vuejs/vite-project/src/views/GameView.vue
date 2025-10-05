@@ -461,6 +461,10 @@
             games.value = response.data.filter(game => {
                 return Number(game.id) !== Number(route.params.id)
             })
+            let turns_count = response.data.filter(game => {
+                return game.whose_turn === auth_username
+            }).length
+            document.title = turns_count > 0 ? `(${turns_count}) - Games` : 'Games'
         })
         .catch(error => {
             const msg = (error.data && error.data.detail) || error.statusText;

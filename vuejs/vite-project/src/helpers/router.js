@@ -9,6 +9,10 @@ import GameView     from '@/views/GameView.vue'
 import Games        from '@/views/Games.vue'
 import Friends      from '@/views/Friends.vue'
 
+import { useFavicon } from '@vueuse/core'
+const favicon = useFavicon()
+favicon.value = import.meta.env.MODE === 'development' ? '/favicon-dev.ico' : 'favicon-prod.ico'
+
 export const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     linkActiveClass: 'active',
@@ -32,3 +36,5 @@ router.beforeEach(to => {
         return '/login';
     }
 });
+
+const DEFAULT_TITLE = import.meta.env.MODE;
