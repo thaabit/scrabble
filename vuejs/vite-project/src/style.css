@@ -72,7 +72,20 @@ button:focus-visible {
 
 /* MOBILE */
 @media screen and (max-width: 768px) {
-    .hide-mobile  { display: none; }
+    dialog {
+        align-self: safe center;
+        width:80vw;
+        border-radius:15px;
+        height:50vh;
+        overflow-y:scroll;
+    }
+    .hide-mobile { display:none; }
+    .three-columns {
+        display:grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
     .board {
         width:100%;
     }
@@ -96,16 +109,38 @@ button:focus-visible {
         font-size:2.5vmin;
     }
     .scores .score {
-        font-size:4.5vmin;
+        font-size:10.5vmin;
     }
     .game {
         margin-bottom:10px;
         font-size:4vmin;
     }
+    .cur-game .user {
+        font-size:2vh;
+    }
+    .cur-game .score {
+        padding:3px 10px;
+        font-size:3vh;
+    }
+    .title {
+        font-weight:bold;
+        font-size:4vmin;
+    }
 }
 /* DESKTOP */
 @media screen and (min-width: 768px) {
+    dialog {
+        align-self: safe center;
+        width:35%;
+        border-radius:15px;
+    }
     .hide-non-mobile  { display: none; }
+    .three-columns {
+        display:grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 40px;
+        max-width:1600px;
+    }
     .board {
         width:auto;
         padding: 16px;
@@ -143,6 +178,10 @@ button:focus-visible {
         margin-bottom:10px;
         font-size:2vh;
     }
+    .title {
+        font-weight:bold;
+        font-size:2.1vmin;
+    }
 }
 
 @media (prefers-color-scheme: light) {
@@ -156,13 +195,6 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
-}
-
-.three-columns {
-    display:grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 40px;
-    max-width:1600px;
 }
 
 .rack-bumper {
@@ -231,11 +263,6 @@ button:focus-visible {
 
 .has-letter {
   background: #f8f9fa;
-}
-dialog {
-    align-self: safe center;
-    width:35%;
-    border-radius:15px;
 }
 ::backdrop {
   background-image: linear-gradient(
@@ -361,43 +388,40 @@ a:hover {
     overflow-y:scroll;
 }
 
-.other-games .game {
+.other-games .game, .all-games .game {
     display:grid;
     grid-template-columns: 1fr 1fr;
     background:#555;
     border-radius:5px;
     margin-bottom:10px;
 }
-.other-games .user {
+.other-games .user, .all-games .user{
     font-weight: bold;
     padding:5px;
 }
 .other-games .over {
     font-weight: bold;
 }
-.other-games .game .current {
+.other-games .game .current, .all-games .game .current {
     background: #D12A24;
     color: orange;
     border-radius:5px;
 }
-.other-games .score {
+.other-games .score, .all-games .score {
     padding:5px;
 }
-.other-games .game:hover {
+.other-games .game:hover, .all-games .game:hover {
     border:1px solid yellow;
 }
 
 .clickable {
     cursor: pointer;
 }
-.title {
-    font-weight:bold;
-    font-size:2.1vmin;
-}
 .box {
     border-radius:10px;
     background:#777;
     padding:10px;
+    margin:15px 0;
 }
 .moves {
     height: 30vh;
@@ -421,7 +445,8 @@ div.move div:nth-child(3n) {
     color:red;
 }
 .you {
-    background:green !important;
+    background: #E62525 !important;
+    color: white !important;
 }
 .hidden {
     display:none;

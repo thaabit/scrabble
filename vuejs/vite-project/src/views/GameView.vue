@@ -1,38 +1,24 @@
 <template>
+<button @click="showMovesDialog">Moves</button>
+<button @click="showGamesDialog">Games  <span v-if="turnCount">({{turnCount}})</span></button>
 <div class="three-columns">
-    <div class="hide-mobile"> <!-- left col -->
+    <div> <!-- left col -->
         <div v-if="curGame?.finished" class="error">GAME OVER MAN</div>
 
         <div v-if="curGame" class="cur-game">
             <div :class="(myTurn) ? 'current' : ''" >
                 <div class="user">You</div>
-                <div class="score">{{curGame.scores[auth_username]}}</div>
+                <div class="score">{{curGame.scores[authUsername]}}</div>
             </div>
             <div :class="(!myTurn) ? 'current' : ''" >
                 <div class="user">{{curGame.opponent}}</div>
                 <div class="score">{{curGame.scores[curGame.opponent]}}</div>
             </div>
         </div>
-        <br><br>
-        <div class="title">Active Games</div>
-        <div class="other-games">
-        <div v-for="(game) in games"
-            @click="changeGame(game.id)"
-            class="game clickable"
-        >
-        <div :class="(game.my_turn) ? 'current' : ''">
-            <div class="user">You {{ game.scores[auth_username] }}</div>
-        </div>
-        <div :class="(!game.my_turn) ? 'current' : ''">
-            <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
-        </div>
-        </div>
-        </div>
 
-        <br><br>
         <div class="unseen" v-if="curGame">
-            <div class="title">Unseen Tiles</div>
             <div class="box">
+                <div class="title">Unseen Tiles</div>
                 <span v-for="(count, letter) in unseenLetters">
                 {{ letter.repeat(count) }}
                 &nbsp;
@@ -44,8 +30,9 @@
             </div>
         <div>
         </div>
-        <div v-if="playScore">
-            Words in Play
+
+        <div class="box" v-if="playScore">
+            <div class="title">Words in Play</div>
         <div
             v-for="(score, word) in playedWords"
             :class="{ 'invalid-word': invalidWords.includes(word) }"
@@ -57,12 +44,42 @@
     </div> <!-- end lef col -->
 
     <div class="centerize"> <!-- main col begin -->
-    <Dialog ref="dialogPass">
+    <Dialog ref="movesDialog">
+        <!-- moves -->
+        <div class="moves">
+        <div v-for="(move) in curGame.moves" :class="['move', move.username===authUsername ? 'you' : '']">
+            <div>{{ move.username }}</div>
+            <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
+            <div>{{ move.tally }} +{{ move.score }}</div>
+            <div></div>
+            <div>{{move.rack}}</div>
+            <div>{{ move.tally + move.score }}</div>
+        </div>
+        </div>
+    </Dialog>
+    <Dialog ref="gamesDialog">
+        <!-- active games -->
+        <div class="title">Active Games</div>
+        <div class="other-games">
+        <div v-for="(game) in games"
+            @click="changeGame(game.id)"
+            class="game clickable"
+        >
+        <div :class="(game.my_turn) ? 'current' : ''">
+            <div class="user">You {{ game.scores[authUsername] }}</div>
+        </div>
+        <div :class="(!game.my_turn) ? 'current' : ''">
+            <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
+        </div>
+        </div>
+        </div>
+    </Dialog>
+    <Dialog ref="passDialog">
         <div>You sure about that?</div>
         <button @click="pass(true)">Pass</button>
         <button @click="closePassDialog">Cancel</button>
     </Dialog>
-    <Dialog ref="dialogExchange">
+    <Dialog ref="exhangeDialog">
         <div class="letter-choice">
             <div
                 v-for="col in 7"
@@ -95,7 +112,7 @@
         </div>
         <button @click="completeExchange">Exchange</button>
     </Dialog>
-    <Dialog ref="dialogBlanks">
+    <Dialog ref="blanksDialog">
         <div class="letter-choice">
         <div v-for="(value, letter) in letterPoints" class="tile" @click="pickBlankReplacement(letter)">{{letter}}</div>
         </div>
@@ -123,7 +140,6 @@
         <div class="rack-bumper" :style="{gridColumn: 1, gridRow: rackRow, gridColumnEnd: 'span 4'}">
             <button @click="shuffleTray" :disabled="gameOverMan">Shuffle</button>
             <button @click="recallTiles" :disabled="gameOverMan">Recall</button>
-            <button @click="refreshGame" :disabled="gameOverMan">Refresh</button>
         </div>
         <div
             v-for="(col) in [...Array(7).keys()]"
@@ -185,19 +201,8 @@
     </div> <!-- board end -->
     </div> <!-- main col end -->
 
-    <div> <!-- column 3 -->
+    <div class="hide-mobile"> <!-- column 3 -->
 
-        <!-- moves -->
-        <div class="moves">
-        <div v-for="(move) in curGame.moves" :class="['move', move.username===auth_username ? 'you' : '']">
-            <div>{{ move.username }}</div>
-            <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
-            <div>{{ move.tally }} +{{ move.score }}</div>
-            <div></div>
-            <div>{{move.rack}}</div>
-            <div>{{ move.tally + move.score }}</div>
-        </div>
-        </div>
     </div> <!-- column 3 -->
     </div> <!-- three column grid -->
 </template>
@@ -220,7 +225,7 @@
     const marker = ref(null)
     const textRight = ref(true)
 
-    const auth_username = useAuthStore().parseJWT().sub
+    const authUsername = useAuthStore().parseJWT().sub
     const rackRow = 16
     const rackStart = 5
     const middle = 8
@@ -233,21 +238,29 @@
         'J': 8, 'K': 5, 'L': 1, 'M': 3, 'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1,
         'S': 1, 'T': 1, 'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10, '?': 0,
     }
-    const dialogBlanks = useTemplateRef('dialogBlanks')
-    const dialogExchange = useTemplateRef('dialogExchange')
-    const dialogPass = useTemplateRef('dialogPass')
-    const closeBlankLetterReplace = () => dialogBlanks.value?.close()
-    const closePassDialog = () => dialogPass.value?.close()
+
+    const blanksDialog = useTemplateRef('blanksDialog')
+    const exhangeDialog = useTemplateRef('exhangeDialog')
+    const movesDialog = useTemplateRef('movesDialog')
+    const passDialog = useTemplateRef('passDialog')
+    const gamesDialog = useTemplateRef('gamesDialog')
+
+    const closeBlankLetterReplace = () => blanksDialog.value?.close()
+    const closePassDialog = () => passDialog.value?.close()
+    const closegamesDialog = () => gamesDialog.value.close()
+
     const exchangeTile = ref(null)
+
     const exchangeNo = ref([])
     const exchangeYes = ref([])
     const myTurn = ref(false)
-    const whose_turn = ref(null)
+    const whoseTurn = ref(null)
     const gameId = ref(route?.params?.id)
     const unseenLetters = ref({})
     const unseenConsonants = ref(null)
     const unseenVowels = ref(null)
     const curGame = ref(false)
+    const turnCount = ref(0)
 
     watch(() => route.params.id, (newId, oldId) => {
         gameId.value = newId
@@ -320,6 +333,7 @@
             bumpMarker(textRight.value ? 'left' : 'up', true)
         }
         else if (key == ' ') {
+            e.preventDefault()
             changeDirection()
         }
         else if (key == 'ESCAPE') {
@@ -428,6 +442,7 @@
     function changeGame(id) {
         if (id != route?.params?.id) {
             router.push(`/game/${id}`)
+            closegamesDialog()
         }
     }
 
@@ -461,10 +476,10 @@
             games.value = response.data.filter(game => {
                 return Number(game.id) !== Number(route.params.id)
             })
-            let turns_count = response.data.filter(game => {
-                return game.whose_turn === auth_username
+            turnCount.value = response.data.filter(game => {
+                return game.whose_turn === authUsername
             }).length
-            document.title = turns_count > 0 ? `(${turns_count}) - Games` : 'Games'
+            document.title = turnCount.value > 0 ? `(${turnCount}) - Games` : 'Games'
         })
         .catch(error => {
             const msg = (error.data && error.data.detail) || error.statusText;
@@ -514,8 +529,8 @@
             curGame.value = response.data
             scores.value = response.data.scores
             gameOverMan.value = response.data.game_over
-            whose_turn.value = response.data.whose_turn
-            myTurn.value = response.data.whose_turn == auth_username && !gameOverMan.value
+            whoseTurn.value = response.data.whose_turn
+            myTurn.value = response.data.whose_turn == authUsername && !gameOverMan.value
             unseenLetters.value = response.data.unseen
             unseenVowels.value = response.data.vowels
             unseenConsonants.value = response.data.consonants
@@ -529,11 +544,14 @@
 
     }
 
+    const showMovesDialog = () => movesDialog.value.show()
+    const showGamesDialog = () => gamesDialog.value.show()
+
     function pass(force) {
         if (force) {
             submitPlay('pass')
         } else {
-            dialogPass.value.show()
+            passDialog.value.show()
         }
     }
 
@@ -541,7 +559,7 @@
         if (data) {
             submitPlay('exchange', data)
         } else {
-            dialogExchange.value.show()
+            exhangeDialog.value.show()
         }
     }
 
@@ -900,7 +918,7 @@
             return tile.getAttribute("letter")
         }).join("")
         submitPlay("exchange", letters)
-        dialogExchange.value.close()
+        exhangeDialog.value.close()
     }
 
     function nodrop(e) {
@@ -988,7 +1006,7 @@
     function showBlankDialog(tile) {
         if (tile.letter === '?') {
             blankTile.value = tile
-            dialogBlanks.value.show()
+            blanksDialog.value.show()
         }
     }
 
@@ -1001,7 +1019,7 @@
             board.value[row - 1][tile.col - 1].sub = tile.sub
         }
         scorePlay()
-        dialogBlanks.value.close()
+        blanksDialog.value.close()
     }
 
     function playDirection() {
