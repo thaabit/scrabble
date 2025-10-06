@@ -72,6 +72,14 @@ button:focus-visible {
 
 /* MOBILE */
 @media screen and (max-width: 768px) {
+    :root {
+        -webkit-user-select: none; /* iOS Safari */
+        -webkit-touch-callout: none; /* iOS Safari */
+        -khtml-user-select: none; /* Konqueror */
+        -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+        user-select: none; /* Non-prefixed version */
+    }
     dialog {
         align-self: safe center;
         width:80vw;
@@ -129,6 +137,7 @@ button:focus-visible {
 }
 /* DESKTOP */
 @media screen and (min-width: 768px) {
+    .type-button { display:none; }
     dialog {
         align-self: safe center;
         width:35%;
@@ -197,6 +206,11 @@ button:focus-visible {
   }
 }
 
+.hidden-input {
+    height:1px !important;
+    width:1px !important;
+    opacity: 0;
+}
 .rack-bumper {
     border-radius:5px;
 }

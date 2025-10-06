@@ -138,6 +138,7 @@
 
         <!-- Rack -->
         <div class="rack-bumper" :style="{gridColumn: 1, gridRow: rackRow, gridColumnEnd: 'span 4'}">
+            <button class="type-button" ref="openKeyboard" @click="showKeyboard">Type</button>
             <button @click="shuffleTray" :disabled="gameOverMan">Shuffle</button>
             <button @click="recallTiles" :disabled="gameOverMan">Recall</button>
         </div>
@@ -151,7 +152,7 @@
         <div class="rack-bumper" :style="{gridColumn: 12, gridRow: rackRow, gridColumnEnd: 'span 4'}">
             <button @click="play"           :disabled="!myTurn || !validPlay">Submit</button>
             <button @click="pass(false)"    :disabled="!myTurn">Pass</button>
-            <button @click="exchange(null)" :disabled="!myTurn">Exchange</button>
+            <button @click="exchange(null)" :disabled="!myTurn">Exch</button>
         </div>
 
         <!-- User Tiles -->
@@ -163,10 +164,10 @@
                 draggable="true"
                 :letter="tile.letter"
                 :index="index"
-                v-on:dragstart="dragging"
-                v-on:dragend="nodrop"
-                v-on:dragover="allowDrop"
-                v-on:drop="swapTiles"
+                @dragstart="dragging"
+                @dragend="nodrop"
+                @dragover="allowDrop"
+                @drop="swapTiles"
                 @dblclick="showBlankDialog(tile)"
                 >
                 <div class="tile-letter">
@@ -199,6 +200,7 @@
         v-on:drop="dropOnMarker"
     >&#9654;</div>
     </div> <!-- board end -->
+    <input ref="hiddenInput" class="hidden-input" style="visibility: hidden; height:1px;">
     </div> <!-- main col end -->
 
     <div class="hide-mobile"> <!-- column 3 -->
@@ -245,9 +247,12 @@
     const passDialog = useTemplateRef('passDialog')
     const gamesDialog = useTemplateRef('gamesDialog')
 
+    const hiddenInput = useTemplateRef('hiddenInput')
+    const openKeyboard = useTemplateRef('openKeyboard')
+
     const closeBlankLetterReplace = () => blanksDialog.value?.close()
-    const closePassDialog = () => passDialog.value?.close()
-    const closegamesDialog = () => gamesDialog.value.close()
+    const closePassDialog  = () => passDialog.value.close()
+    const closeGamesDialog = () => gamesDialog.value.close()
 
     const exchangeTile = ref(null)
 
@@ -297,6 +302,13 @@
         return sorted[sorted.length - 1]
     }
 
+    // mobile only
+    function showKeyboard() {
+        hiddenInput.value.style.visibility = 'visible'
+        hiddenInput.value.focus()
+        hiddenInput.value.select()
+        hiddenInput.value.style.visibility = 'hidden'
+    }
     function removeTileAt(row, col) {
         let tile = tileAt(row, col)
         if (!tile) return false
@@ -329,6 +341,7 @@
             ARROWUP:    'up',
             ARROWDOWN:  'down',
         }
+        console.log(key)
         if (key == 'BACKSPACE') {
             bumpMarker(textRight.value ? 'left' : 'up', true)
         }
@@ -339,7 +352,11 @@
         else if (key == 'ESCAPE') {
             recallTiles()
         }
+        else if (key == 'TAB') {
+            e.preventDefault()
+        }
         else if (key == 'ENTER') {
+            e.preventDefault()
             if (myTurn.value && validPlay.value) {
                 play()
             }
@@ -442,7 +459,7 @@
     function changeGame(id) {
         if (id != route?.params?.id) {
             router.push(`/game/${id}`)
-            closegamesDialog()
+            closeGamesDialog()
         }
     }
 
@@ -479,7 +496,7 @@
             turnCount.value = response.data.filter(game => {
                 return game.whose_turn === authUsername
             }).length
-            document.title = turnCount.value > 0 ? `(${turnCount}) - Games` : 'Games'
+            document.title = turnCount.value > 0 ? `(${turnCount.value}) - Games` : 'Games'
         })
         .catch(error => {
             const msg = (error.data && error.data.detail) || error.statusText;
@@ -509,7 +526,7 @@
             let rack_start = 5
             response.data.tray.forEach(letter => {
                 playerTiles.value.push({
-                    index:  letter + rack_start,
+                    index:  rack_start,
                     letter: letter,
                     row:    rackRow,
                     col:    rack_start++,
@@ -550,6 +567,7 @@
     function pass(force) {
         if (force) {
             submitPlay('pass')
+            closePassDialog()
         } else {
             passDialog.value.show()
         }
@@ -837,7 +855,7 @@
     }
 
     function dragging(e) {
-        let el = e.target;
+        let el = e.currentTarget;
         el.classList.add('dragging');
 
         e.dataTransfer.setData("index", el.getAttribute("index"));
@@ -856,7 +874,7 @@
 
     function swapTiles(e) {
         // two tiles
-        let a = playerTiles.value[e.target.getAttribute("index")];
+        let a = playerTiles.value[e.currentTarget.getAttribute("index")];
         let b = playerTiles.value[e.dataTransfer.getData("index")]
 
         // swap tiles

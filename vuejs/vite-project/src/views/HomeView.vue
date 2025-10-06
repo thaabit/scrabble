@@ -27,12 +27,7 @@
     const turnCount = ref(null)
     const authUsername = useAuthStore().parseJWT().sub
 
-    function changeGame(id) {
-        if (id != route?.params?.id) {
-            router.push(`/game/${id}`)
-            closegamesDialog()
-        }
-    }
+    const changeGame = (id) => router.push(`/game/${id}`)
     onMounted(() => {
         http.get('/game?type=active').then(response => {
             games.value = response.data.filter(game => {
