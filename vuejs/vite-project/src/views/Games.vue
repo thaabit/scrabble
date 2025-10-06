@@ -32,7 +32,6 @@ function changeGame(id) {
 
 onMounted(() => {
     http.get('/game?type=inactive').then(response => {
-        console.log(response.data)
         games.value = response.data
     })
     .catch(error => {

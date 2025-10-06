@@ -207,8 +207,6 @@ button:focus-visible {
 }
 
 .hidden-input {
-    height:1px !important;
-    width:1px !important;
     opacity: 0;
 }
 .rack-bumper {

@@ -200,7 +200,7 @@
         v-on:drop="dropOnMarker"
     >&#9654;</div>
     </div> <!-- board end -->
-    <input ref="hiddenInput" class="hidden-input" style="visibility: hidden; height:1px;">
+    <input ref="hiddenInput" class="hidden-input">
     </div> <!-- main col end -->
 
     <div class="hide-mobile"> <!-- column 3 -->
@@ -341,22 +341,23 @@
             ARROWUP:    'up',
             ARROWDOWN:  'down',
         }
-        console.log(key)
         if (key == 'BACKSPACE') {
             bumpMarker(textRight.value ? 'left' : 'up', true)
         }
         else if (key == ' ') {
             e.preventDefault()
-            changeDirection()
+            shuffleTray()
         }
         else if (key == 'ESCAPE') {
             recallTiles()
         }
         else if (key == 'TAB') {
             e.preventDefault()
+            changeDirection()
         }
         else if (key == 'ENTER') {
             e.preventDefault()
+            if (!myTurn.value) alert("not your turn")
             if (myTurn.value && validPlay.value) {
                 play()
             }
