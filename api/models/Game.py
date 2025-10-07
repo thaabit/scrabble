@@ -321,7 +321,7 @@ class Game(SQLModelBase, table=True):
 
     def current_user_tray(self):
         moves = self.moves
-        trays = self.trays
+        trays = sorted(self.trays, key=id)
         return trays[len(moves) % len(trays)]
 
     def whose_turn(self):
