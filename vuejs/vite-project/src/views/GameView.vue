@@ -85,26 +85,20 @@
                 v-for="col in 7"
                 class="rack-cell"
                 :style="{gridColumn: col, gridRow: 1}"
-                v-on:dragover="allowDrop"
-                v-on:drop="exchangeDrop"
             >
             </div>
             <div
                 v-for="col in 7"
                 class="board-cell"
                 :style="{gridColumn: col, gridRow: 2}"
-                v-on:dragover="allowDrop"
-                v-on:drop="exchangeDrop"
             ></div>
             <div
-                v-for="(tile, col) in playerTiles"
-                :key="`exchange-letter-${col}`"
-                class="board-cell tile"
+                v-for="(tile) in exchangeTiles"
+                :key="`exchange-letter-${tile.col}`"
+                class="tile"
                 :letter="tile.letter"
-                :style="{gridColumn: col + 1, gridRow: 1}"
-                v-on:dragstart="exchangeDragging"
-                v-on:dragend="nodrop"
-                draggable="true"
+                :style="{gridColumn: tile.col, gridRow: tile.row}"
+                @click="toggleExchange"
             >
                 {{ tile.sub || tile.letter }}
                 <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
@@ -210,7 +204,7 @@
 </template>
 <script setup>
     import { http } from '@/helpers/api.js';
-    import { ref, onMounted, onUnmounted, useTemplateRef, watch } from 'vue'
+    import { ref, computed, onMounted, onUnmounted, useTemplateRef, watch } from 'vue'
     import { router } from '@/helpers/router.js'
     import { useRoute } from 'vue-router';
     import { useAuthStore } from '@/stores/auth.store.js'
@@ -218,6 +212,7 @@
 
     const route = useRoute()
     const playerTiles = ref([])
+    const exchangeTiles = ref([])
     const validPlay = ref(false);
     const board = ref([])
     const existingTiles = ref([])
@@ -266,6 +261,7 @@
     const unseenVowels = ref(null)
     const curGame = ref(false)
     const turnCount = ref(0)
+    let otherKeydown = false
 
     watch(() => route.params.id, (newId, oldId) => {
         gameId.value = newId
@@ -278,9 +274,8 @@
         initializeBoard()
         refreshGame()
         interval = setInterval(checkRefreshGame, 1000*60)
-            window.addEventListener('keydown', function(e) {
-                handleKeyPress(e);
-            });
+        window.addEventListener('keydown', handleKeyPress)
+        window.addEventListener('keyup', handleKeyUp)
     })
 
     onUnmounted(() => {
@@ -309,6 +304,7 @@
         hiddenInput.value.select()
         hiddenInput.value.style.visibility = 'hidden'
     }
+
     function removeTileAt(row, col) {
         let tile = tileAt(row, col)
         if (!tile) return false
@@ -332,9 +328,15 @@
         bumpMarker('right')
     }
 
+    function handleKeyUp(e) {
+        otherKeydown = false
+    }
+
     function handleKeyPress(e) {
         const key = e.key.toUpperCase()
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        if (otherKeydown) return
+        console.log(key, otherKeydown)
         let dirs = {
             ARROWLEFT:  'left',
             ARROWRIGHT: 'right',
@@ -392,6 +394,9 @@
                     return false
                 })
             }
+        }
+        else {
+            otherKeydown = true
         }
     }
 
@@ -505,6 +510,9 @@
         });
     }
 
+    const toExchangeTiles = computed(() => {
+        return exchangeTiles.value.filter(tile => tile.row === 2)
+    })
     function refreshGame() {
         refreshGameList()
 
@@ -512,6 +520,7 @@
         existingTiles.value = []
         playScore.value = 0
         playerTiles.value = []
+        exchangeTiles.value = []
         exchangeNo.value = []
         playedCoords.value = new Map
         scores.value = []
@@ -525,12 +534,20 @@
         if (!route?.params.id) return;
         http.get('/game/' + route.params.id).then(response => {
             let rack_start = 5
+            let exchange_start = 1
             response.data.tray.forEach(letter => {
                 playerTiles.value.push({
                     index:  rack_start,
                     letter: letter,
                     row:    rackRow,
                     col:    rack_start++,
+                })
+
+                exchangeTiles.value.push({
+                    index:  exchange_start,
+                    letter: letter,
+                    row:    1,
+                    col:    exchange_start++,
                 })
                 exchangeNo.value.push(letter)
             })
@@ -549,6 +566,7 @@
             gameOverMan.value = response.data.game_over
             whoseTurn.value = response.data.whose_turn
             myTurn.value = response.data.whose_turn == authUsername && !gameOverMan.value
+            console.log(whoseTurn.value, myTurn.value)
             unseenLetters.value = response.data.unseen
             unseenVowels.value = response.data.vowels
             unseenConsonants.value = response.data.consonants
@@ -917,25 +935,22 @@
         scorePlay()
     }
 
-    function exchangeDragging(e) {
-        let el = e.target;
-        el.classList.add('dragging');
-        e.dataTransfer.setData("index", el.getAttribute("index"));
-        exchangeTile.value = el
-    }
-
-    function exchangeDrop(e) {
-        e.preventDefault();
-
-        exchangeTile.value.style.gridRow = Number(e.target.style.gridRow)
-        exchangeTile.value.style.gridColumn = Number(e.target.style.gridColumn)
-        if (e.target.style.gridRow == 2) exchangeTile.value.classList.add("exchange-me-please")
+    function toggleExchange(e) {
+        let el = e.currentTarget;
+        console.log(el, exchangeTiles.value)
+        const row = Number(el.style.gridRow)
+        const col = Number(el.style.gridColumn)
+        exchangeTiles.value.forEach(tile => {
+            console.log(tile.row, row, tile.col, col)
+            if (tile.row === row && tile.col === col) {
+                tile.row = tile.row === 1 ? 2 : 1
+            }
+        })
     }
 
     function completeExchange() {
-        const letters = Array.from(document.querySelectorAll(".exchange-me-please")).map(tile => {
-            return tile.getAttribute("letter")
-        }).join("")
+        let letters = toExchangeTiles.value.map(tile => tile.letter).join("")
+        console.log(letters)
         submitPlay("exchange", letters)
         exhangeDialog.value.close()
     }
