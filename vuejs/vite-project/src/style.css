@@ -207,7 +207,7 @@ button:focus-visible {
 }
 
 .hidden-input {
-    opacity: 0;
+   #opacity: 0;
 }
 .rack-bumper {
     border-radius:5px;
@@ -290,10 +290,20 @@ button:focus-visible {
     display:grid;
     grid-template-columns: repeat(7, 1fr);
 }
+.button-image {
+    display:inline-flex;
+    width:3em;
+    cursor:pointer;
+    margin:.3em .5em;
+}
+img.disabled {
+    opacity:.3;
+    cursor:not-allowed;
+}
 .tile {
     display:inline-flex;
     line-height:1;
-    background:black;
+    background:#333;
     color:#fff;
     z-index:1100;
     justify-content:center;
@@ -362,7 +372,7 @@ small.points {
   transform: translateX(-9999px);
 }
 .played {
-    color: #555;
+    color: #999;
     border: 1px solid #555;
 }
 .valid {
