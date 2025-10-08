@@ -132,9 +132,9 @@
 
         <!-- Rack -->
         <div class="rack-bumper" :style="{gridColumn: 1, gridRow: rackRow, gridColumnEnd: 'span 4'}">
-            <button class="type-button" ref="openKeyboard" @click="showKeyboard">Type</button>
-            <button @click="shuffleTray" :disabled="gameOverMan">Shuffle</button>
-            <button @click="recallTiles" :disabled="gameOverMan">Recall</button>
+            <img @click="showKeyboard" src="/keyboard.svg" class="button-image hide-non-mobile"/>
+            <img @click="shuffleTray"  src="/shuffle.svg"  class="button-image"/>
+            <img @click="recallTiles"  src="/recall.svg"   class="button-image"/>
         </div>
         <div
             v-for="(col) in [...Array(7).keys()]"
@@ -144,9 +144,9 @@
             v-on:dragover="allowDrop"
         />
         <div class="rack-bumper" :style="{gridColumn: 12, gridRow: rackRow, gridColumnEnd: 'span 4'}">
-            <button @click="play"           :disabled="!myTurn || !validPlay">Submit</button>
-            <button @click="pass(false)"    :disabled="!myTurn">Pass</button>
-            <button @click="exchange(null)" :disabled="!myTurn">Exch</button>
+            <img @click="play" src="/play.svg" :class="['button-image', (!myTurn || !validPlay) ? 'disabled' : '']" />
+            <img @click="pass(false)" src="/pass.svg" :class="['button-image', !myTurn ? 'disabled' : '']" />
+            <img @click="exchange(null)" src="/exchange.svg" :class="['button-image', !myTurn ? 'disabled' : '']" />
         </div>
 
         <!-- User Tiles -->
@@ -243,7 +243,6 @@
     const gamesDialog = useTemplateRef('gamesDialog')
 
     const hiddenInput = useTemplateRef('hiddenInput')
-    const openKeyboard = useTemplateRef('openKeyboard')
 
     const closeBlankLetterReplace = () => blanksDialog.value?.close()
     const closePassDialog  = () => passDialog.value.close()
@@ -302,7 +301,7 @@
         hiddenInput.value.style.visibility = 'visible'
         hiddenInput.value.focus()
         hiddenInput.value.select()
-        hiddenInput.value.style.visibility = 'hidden'
+        //hiddenInput.value.style.visibility = 'hidden'
     }
 
     function removeTileAt(row, col) {
@@ -950,7 +949,6 @@
 
     function completeExchange() {
         let letters = toExchangeTiles.value.map(tile => tile.letter).join("")
-        console.log(letters)
         submitPlay("exchange", letters)
         exhangeDialog.value.close()
     }
