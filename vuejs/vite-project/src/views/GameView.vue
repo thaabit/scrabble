@@ -301,7 +301,7 @@
         hiddenInput.value.style.visibility = 'visible'
         hiddenInput.value.focus()
         hiddenInput.value.select()
-        //hiddenInput.value.style.visibility = 'hidden'
+        window.scrollTo(0, document.body.scrollHeight);
     }
 
     function removeTileAt(row, col) {
@@ -483,6 +483,9 @@
         if (!myTurn) {
             refreshGame()
         }
+        else {
+            refreshGameList()
+        }
     }
 
     function coordsKey(row, col) {
@@ -617,6 +620,7 @@
         if (data) body.data = data
         http.post('/move', body).then(response => {
             refreshGame()
+            showGamesDialog()
         })
     }
 
