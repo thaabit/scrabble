@@ -46,6 +46,14 @@ def user_by_username(username):
         user = session.exec(query).one()
         return user
 
+@router.get("/login_as/{username}")
+def read_game(username: str, auth_username: str = Depends(get_authed_username)):
+    if auth_username in (os.getenv("ADMIN") or '').split(","):
+        access_token = create_access_token(data={"sub": username})
+        return access_token
+    else:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
 @router.post("/login")
 async def login_for_access_token(json: LoginValidation):
     with Session(engine) as session:
