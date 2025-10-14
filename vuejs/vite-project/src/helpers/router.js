@@ -17,7 +17,7 @@ export const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     linkActiveClass: 'active',
     routes: [
-        { path: '/', component: HomeView },
+        { path: '/', component: GameView },
         { path: '/login', component: LoginView },
         { path: '/signup', component: SignupView },
         { name: 'game', path: '/game/:id(\\d+)', component: GameView },

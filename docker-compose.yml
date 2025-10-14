@@ -17,6 +17,7 @@ services:
       DB_USER: alpha
       DB_PASS: alpha
       DB_HOST: 'scrabble-db'
+      ADMIN: thaabit,garth
     ports:
       - 8000:8000
     tty: true
