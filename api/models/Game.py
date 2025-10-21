@@ -71,22 +71,22 @@ class Game(SQLModelBase, table=True):
 
         if is_over:
             cur_user = self.whose_turn()
-            other_user = self.opponent(cur_user)
-            other_tray = [x for x in self.trays if x.username == other_user][0]
-            out.append({
-                "tally": tallies[other_user],
-                "username": other_user,
-                "score": 0,
-                "type": "pass",
-                "rack": other_tray.tray,
-            })
-            bonus = sum([LETTER_VALUES[x] for x in other_tray.tray])
+            cur_tray = self.current_user_tray()
             out.append({
                 "tally": tallies[cur_user],
                 "username": cur_user,
+                "score": 0,
+                "type": "pass",
+                "rack": cur_tray.tray,
+            })
+            bonus = sum([LETTER_VALUES[x] for x in cur_tray.tray])
+            other_user = self.opponent(cur_user)
+            out.append({
+                "tally": tallies[other_user],
+                "username": other_user,
                 "score": bonus,
                 "type": "bonus",
-                "rack": other_tray.tray,
+                "rack": cur_tray.tray,
             })
 
         return out
