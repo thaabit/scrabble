@@ -79,7 +79,7 @@ class Game(SQLModelBase, table=True):
                 "type": "pass",
                 "rack": cur_tray.tray,
             })
-            bonus = sum([LETTER_VALUES[x] for x in cur_tray.tray])
+            bonus = sum([LETTER_VALUES[x] for x in cur_tray.tray]) * 2
             other_user = self.opponent(cur_user)
             out.append({
                 "tally": tallies[other_user],
