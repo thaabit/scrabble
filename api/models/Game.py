@@ -161,7 +161,7 @@ class Game(SQLModelBase, table=True):
         return sum([u[x] for x in u if not re.match(r"[AEIOU]", x)])
 
     def score(self, username):
-        total = sum([int(x.score) for x in self.moves if x.username == username and x.type == 'play'])
+        total = sum([int(x['score']) for x in self.moves_with_tally(username) if x['username'] == username])
         return total
 
     def game_over(self):
