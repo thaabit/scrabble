@@ -1,17 +1,43 @@
 <template>
-<button @click="showMovesDialog">Moves</button>
-<button @click="showGamesDialog">Games  <span v-if="turnCount">({{turnCount}})</span></button>
-<div class="three-columns">
+<div id="top">
+    <template v-if="isAuthenticated">
+    <a @click="showGamesDialog">Games  <span v-if="turnCount">({{turnCount}})</span> | </a>
+    <RouterLink to="/games">Archive | </RouterLink>
+    <RouterLink to="/friends">Friends | </RouterLink>
+    <a @click="showMovesDialog">Moves | </a>
+    <a @click="authStore.logout">Logout</a>
+    </template>
+
+    <template v-else>
+    <RouterLink to="/signup">Signup | </RouterLink>
+    <RouterLink to="/login">Login</RouterLink>
+    </template>
+</div>
+<div class="two-columns">
     <div> <!-- left col -->
         <div v-if="curGame?.finished" class="error">GAME OVER MAN</div>
 
         <div v-if="curGame" class="cur-game">
-            <div :class="(myTurn) ? 'current' : ''" >
-                <div class="user">You</div>
-                <div class="score">{{curGame.scores[authUsername]}}</div>
+            <div :class="['you', myTurn ? 'current' : '']" >
+                <div class="title">You</div>
+                <div class="score">{{curGame.scores[authUsername]}}
+                <span v-if="playScore">+{{ playScore }}</span></div>
             </div>
-            <div :class="(!myTurn) ? 'current' : ''" >
-                <div class="user">{{curGame.opponent}}</div>
+            <div :class="['play']">
+                <div v-if="lastMove">
+                    <div class="box">{{ lastMove.username }} - {{ lastMove.main_word || lastMove.exchange || lastMove.type.toUpperCase() }} +{{lastMove.score}}</div>
+                </div>
+
+                <div v-if="playScore" class="word-scores">
+                <template
+                v-for="(score, word) in playedWords"
+                >
+                <div :class="{ 'invalid-word': invalidWords.includes(word) }">{{word}}</div><div>{{score}}</div>
+                </template>
+                </div>
+            </div>
+            <div :class="['other', (!myTurn) ? 'current' : '']" >
+                <div class="title">{{curGame.opponent}}</div>
                 <div class="score">{{curGame.scores[curGame.opponent]}}</div>
             </div>
         </div>
@@ -23,30 +49,22 @@
                 {{ letter.repeat(count) }}
                 &nbsp;
                 </span>
-                <br><br>
-                <div>{{ unseenVowels + unseenConsonants }} tiles</div>
-                <div>{{ unseenVowels }} vowels | {{ unseenConsonants }} consonants</div>
+                <hr>
+                <div>{{ unseenVowels + unseenConsonants }} tiles || {{ unseenVowels }} vowels | {{ unseenConsonants }} consonants</div>
             </div>
             </div>
         <div>
         </div>
 
-        <div class="box" v-if="playScore">
-            <div class="title">Words in Play</div>
-        <div
-            v-for="(score, word) in playedWords"
-            :class="{ 'invalid-word': invalidWords.includes(word) }"
-        >
-        {{word}}: {{score}}
-        </div>
-        <div>TOTAL: {{ playScore }}</div>
-        </div>
     </div> <!-- end lef col -->
 
     <div class="centerize"> <!-- main col begin -->
+    <Dialog ref="newGameDialog">
+        <div v-for="(user) in allUsers">{{user}} <button @click="newGame(user)">New Game</button></div>
+    </Dialog>
     <Dialog ref="movesDialog">
         <!-- moves -->
-        <div class="moves">
+        <div v-if="curGame.moves" class="moves">
         <div v-for="(move) in curGame.moves" :class="['move', move.username===authUsername ? 'you' : '']">
             <div>{{ move.username }}</div>
             <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
@@ -56,10 +74,13 @@
             <div>{{ move.tally + move.score }}</div>
         </div>
         </div>
+        <div v-else>No moves yet</div>
     </Dialog>
     <Dialog ref="gamesDialog">
         <!-- active games -->
-        <div class="title">Active Games</div>
+        <div class="title">Active Games
+            <button @click="showNewGameDialog">New Game</button>
+        </div>
         <div class="other-games">
         <div v-for="(game) in games"
             @click="changeGame(game.id)"
@@ -140,8 +161,8 @@
             v-for="(col) in [...Array(7).keys()]"
             :class="['board-cell','rack-cell']"
             :style="{gridColumn: col + 5, gridRow: 16}"
-            v-on:drop="drop"
-            v-on:dragover="allowDrop"
+            @drop="drop"
+            @dragover="allowDrop"
         />
         <div class="rack-bumper" :style="{gridColumn: 12, gridRow: rackRow, gridColumnEnd: 'span 4'}">
             <img @click="play" src="/play.svg" :class="['button-image', (!myTurn || !validPlay) ? 'disabled' : '']" />
@@ -176,8 +197,8 @@
             :key="`played-${index}`"
             :class="['tile', 'played', tile.sub ? 'blank' : '']"
             :style="{gridColumn: tile.col, gridRow: tile.row}"
-            v-on:dragstart="dragging"
-            v-on:dragend="nodrop"
+            @dragstart="dragging"
+            @dragend="nodrop"
             draggable="true"
         >
         <div class="tile-letter">
@@ -191,7 +212,7 @@
         class="hidden marker"
         style="grid-area: 8 / 8"
         @dragover="allowDrop"
-        v-on:drop="dropOnMarker"
+        @drop="dropOnMarker"
     >&#9654;</div>
     </div> <!-- board end -->
     <input ref="hiddenInput" class="hidden-input">
@@ -210,10 +231,11 @@
     import { useAuthStore } from '@/stores/auth.store.js'
     import Dialog from '@/components/Dialog.vue'
 
+    import { storeToRefs } from 'pinia'
+
     const route = useRoute()
     const playerTiles = ref([])
     const exchangeTiles = ref([])
-    const validPlay = ref(false);
     const board = ref([])
     const existingTiles = ref([])
     const playedCoords = ref(new Map)
@@ -252,15 +274,24 @@
 
     const exchangeNo = ref([])
     const exchangeYes = ref([])
-    const myTurn = ref(false)
     const whoseTurn = ref(null)
     const gameId = ref(route?.params?.id)
     const unseenLetters = ref({})
     const unseenConsonants = ref(null)
     const unseenVowels = ref(null)
     const curGame = ref(false)
+    const lastMove = ref(null)
     const turnCount = ref(0)
     let otherKeydown = false
+    let validPlay = false;
+    let myTurn = false
+
+    const authStore = useAuthStore();
+    const { isAuthenticated, loggedInUser } = storeToRefs(authStore)
+
+    const newGameDialog = useTemplateRef('newGameDialog')
+    const showNewGameDialog = () => newGameDialog.value.show()
+    const allUsers = ref([])
 
     watch(() => route.params.id, (newId, oldId) => {
         gameId.value = newId
@@ -275,7 +306,27 @@
         interval = setInterval(checkRefreshGame, 1000*60)
         window.addEventListener('keydown', handleKeyPress)
         window.addEventListener('keyup', handleKeyUp)
+        http.get('/user').then(response => {
+            allUsers.value = response.data
+        })
+        .catch(error => {
+            console.log(error)
+            const msg = (error.data && error.data.detail) || error.statusText;
+            throw new Error(msg);
+        })
     })
+
+    function newGame(other_user) {
+        http.post('/game', { opponent: other_user }).then(response => {
+            newGameDialog.value.close()
+            router.push(`/game/${response.data.id}`)
+        })
+        .catch(error => {
+            console.log(error)
+            const msg = (error.data && error.data.detail) || error.statusText;
+            throw new Error(msg);
+        });
+    }
 
     onUnmounted(() => {
         clearInterval(interval);
@@ -291,7 +342,7 @@
 
     }
 
-    function lastTile() {
+    function lastPlayedTile() {
         let sorted = tilesOnBoard().sort(compareTiles);
         return sorted[sorted.length - 1]
     }
@@ -304,19 +355,17 @@
         window.scrollTo(0, document.body.scrollHeight);
     }
 
-    function removeTileAt(row, col) {
-        let tile = tileAt(row, col)
+    function recallTile(tile) {
         if (!tile) return false
 
         if (tile.row != rackRow) {
             delete board.value[tile.row-1][tile.col-1].letter
             delete board.value[tile.row-1][tile.col-1].value
             delete board.value[tile.row-1][tile.col-1].sub
+            tile.col = openTrayCols().shift()
+            tile.row = rackRow
+            scorePlay()
         }
-        let openCols = openTrayCols()
-        tile.col = openCols.shift()
-        tile.row = rackRow
-        scorePlay()
         return true;
     }
 
@@ -334,8 +383,7 @@
     function handleKeyPress(e) {
         const key = e.key.toUpperCase()
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-        if (otherKeydown) return
-        console.log(key, otherKeydown)
+        if (otherKeydown || !curGame.value) return
         let dirs = {
             ARROWLEFT:  'left',
             ARROWRIGHT: 'right',
@@ -358,8 +406,8 @@
         }
         else if (key == 'ENTER') {
             e.preventDefault()
-            if (!myTurn.value) alert("not your turn")
-            if (myTurn.value && validPlay.value) {
+            if (!myTurn) alert("not your turn")
+            if (myTurn && validPlay) {
                 play()
             }
         }
@@ -440,15 +488,9 @@
     // bump marker past any existing tiles
     function bumpMarker(dir=textRight.value ? 'right' : 'down', clobber=false) {
         let [row, col] = nextSquare(Number(marker.value.style.gridRow), Number(marker.value.style.gridColumn), dir)
+        if (clobber) recallTile(lastPlayedTile())
+
         let count = 0
-        if (clobber) {
-            let tile = lastTile()
-            if (tile) {
-                row = tile.row
-                col = tile.col
-                removeTileAt(row, col)
-            }
-        }
         let square = boardAt(row, col)
         while (square && (square.previous || square.letter)) {
             [row, col] = nextSquare(row, col, dir)
@@ -462,10 +504,8 @@
     }
 
     function changeGame(id) {
-        if (id != route?.params?.id) {
-            router.push(`/game/${id}`)
-            closeGamesDialog()
-        }
+        router.push(`/game/${id}`)
+        closeGamesDialog()
     }
 
     function changeDirection() {
@@ -498,9 +538,7 @@
 
     function refreshGameList() {
         http.get('/game?type=active').then(response => {
-            games.value = response.data.filter(game => {
-                return Number(game.id) !== Number(route.params.id)
-            })
+            games.value = response.data
             turnCount.value = response.data.filter(game => {
                 return game.whose_turn === authUsername
             }).length
@@ -516,6 +554,7 @@
         return exchangeTiles.value.filter(tile => tile.row === 2)
     })
     function refreshGame() {
+
         refreshGameList()
 
         playedWords.value = {}
@@ -531,9 +570,11 @@
         unseenConsonants.value = null
         unseenVowels.value = null
         curGame.value = false
+        lastMove.value = null
 
 
-        if (!route?.params.id) return;
+        if (!route?.params.id) return showGamesDialog();
+
         http.get('/game/' + route.params.id).then(response => {
             let rack_start = 5
             let exchange_start = 1
@@ -564,11 +605,11 @@
                 })
             })
             curGame.value = response.data
+            lastMove.value = curGame.value.moves[0]
             scores.value = response.data.scores
             gameOverMan.value = response.data.game_over
             whoseTurn.value = response.data.whose_turn
-            myTurn.value = response.data.whose_turn == authUsername && !gameOverMan.value
-            console.log(whoseTurn.value, myTurn.value)
+            myTurn = response.data.whose_turn == authUsername && !gameOverMan.value
             unseenLetters.value = response.data.unseen
             unseenVowels.value = response.data.vowels
             unseenConsonants.value = response.data.consonants
@@ -603,7 +644,7 @@
     }
 
     function play() {
-        if (validPlay.value) {
+        if (validPlay) {
             let data = tilesOnBoard().map(tile => {
                 let letter = tile.sub ? tile.letter + tile.sub : tile.letter
                 return [letter, tile.row - 1, tile.col - 1].join(':')
@@ -651,14 +692,14 @@
         const query_string = words.map(word => `words=${word}`).join('&')
         http.get(`/word?${query_string}`).then(response => {
             invalidWords.value = response.data.invalid
-            if (invalidWords.value.length) validPlay.value = false
+            if (invalidWords.value.length) validPlay = false
         })
     }
 
     function validatePlay() {
         let played = tilesOnBoard()
         if (played.length === 0) {
-            validPlay.value = false
+            validPlay = false
             return
         }
 
@@ -672,7 +713,7 @@
         let isStraight = (playDir !== "neither")
 
         if (!isStraight) {
-            validPlay.value = false
+            validPlay = false
             return
         }
 
@@ -705,12 +746,12 @@
             }
         }
         if (isStraight && hasMiddle && connected && played.length > 1) {
-            validPlay.value = true;
+            validPlay = true;
             return
         }
 
         if (!connected) {
-            validPlay.value = false;
+            validPlay = false;
             return;
         }
 
@@ -733,16 +774,16 @@
         })
 
         if (!blankSet) {
-            validPlay.value = false
+            validPlay = false
             return
         }
 
         // fully valid
         if (isTouching && isStraight && !hasMiddle && played.length >= 1) {
-            validPlay.value = true;
+            validPlay = true;
             return
         }
-        validPlay.value = false;
+        validPlay = false;
     }
 
     function transposeArray(array){
@@ -797,7 +838,7 @@
         playedWords.value = {}
         playScore.value = 0
 
-        if (!validPlay.value) return 0;
+        if (!validPlay) return 0;
 
         let usedRows = playedRows()
         let usedCols = playedCols()
@@ -834,18 +875,17 @@
     }
 
     function tileAt(row, col) {
-        let out = null
-        tilesOnBoard().forEach(tile => {
-            if (tile.row === row && tile.col === col) {
-                out = tile
-                return;
-            }
+        let blah = playerTiles.value.find(tile => {
+            return (tile.row === Number(row) && tile.col === Number(col))
         })
-        return out
+        return blah
     }
 
     function tilesOnBoard() {
-        return playerTiles.value.filter(tile => tile.row !== rackRow)
+        let blah = playerTiles.value.filter(tile => {
+            return tile.row !== rackRow
+        })
+        return blah
     }
 
     function tilesOnRack() {
@@ -860,12 +900,7 @@
 
     function recallTiles() {
         let openCols = openTrayCols()
-        playerTiles.value.forEach(tile => {
-            if (tile.row !== rackRow) {
-            tile.row = rackRow
-            tile.col = openCols.shift()
-            }
-        })
+        playerTiles.value.forEach(tile => recallTile(tile))
         scorePlay()
     }
 
@@ -876,11 +911,12 @@
         })
     }
 
+    let draggedEl = null
     function dragging(e) {
         let el = e.currentTarget;
+        draggedEl = el
         el.classList.add('dragging');
 
-        e.dataTransfer.setData("index", el.getAttribute("index"));
         let row = Number(el.style.gridRow)
         let col = Number(el.style.gridColumn)
         if (row != rackRow) {
@@ -897,7 +933,7 @@
     function swapTiles(e) {
         // two tiles
         let a = playerTiles.value[e.currentTarget.getAttribute("index")];
-        let b = playerTiles.value[e.dataTransfer.getData("index")]
+        let b = draggedEl
 
         // swap tiles
         a.row = [b.row, b.row = a.row][0]; // swap row of tiles
@@ -916,11 +952,7 @@
         let cell = e.target;
         let row = Number(cell.style.gridRow)
         let col = Number(cell.style.gridColumn)
-
-        // tile
-        let data = e.dataTransfer;
-        let tile = playerTiles.value[data.getData("index")]
-        placeTile(tile, row, col)
+        placeTile(tileAt(draggedEl.style.gridRow, draggedEl.style.gridColumn), row, col)
     }
 
     let placedTiles = []
@@ -940,11 +972,9 @@
 
     function toggleExchange(e) {
         let el = e.currentTarget;
-        console.log(el, exchangeTiles.value)
         const row = Number(el.style.gridRow)
         const col = Number(el.style.gridColumn)
         exchangeTiles.value.forEach(tile => {
-            console.log(tile.row, row, tile.col, col)
             if (tile.row === row && tile.col === col) {
                 tile.row = tile.row === 1 ? 2 : 1
             }
@@ -1013,7 +1043,7 @@
 
     function validClass(tile) {
         if (tile.row == rackRow) return ''
-        return validPlay.value ? 'valid' : 'invalid'
+        return validPlay ? 'valid' : 'invalid'
     }
 
     function getCellClass(cell) {

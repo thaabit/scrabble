@@ -52,10 +52,11 @@ class Game(SQLModelBase, table=True):
     def moves_with_tally(self, auth_username):
         tallies = dict(zip(self.users(), [0] * len(self.users())))
         out = []
+        is_over = self.game_over()
         for move in self.moves:
-            is_authed = (move.username == auth_username)
+            is_authed = is_over or (move.username == auth_username)
             fancy_move = {
-                "tally": tallies[move.username],
+                "tally":     tallies[move.username],
                 "username":  move.username,
                 "score":     move.score,
                 "data":      move.data,
@@ -67,6 +68,27 @@ class Game(SQLModelBase, table=True):
                 fancy_move['exchange'] = '-' + (str(len(move.data)) if not is_authed else move.data)
             out.append(fancy_move)
             tallies[move.username] += move.score
+
+        if is_over:
+            cur_user = self.whose_turn()
+            other_user = self.opponent(cur_user)
+            other_tray = [x for x in self.trays if x.username == other_user][0]
+            out.append({
+                "tally": tallies[other_user],
+                "username": other_user,
+                "score": 0,
+                "type": "pass",
+                "rack": other_tray.tray,
+            })
+            bonus = sum([LETTER_VALUES[x] for x in other_tray.tray])
+            out.append({
+                "tally": tallies[cur_user],
+                "username": cur_user,
+                "score": bonus,
+                "type": "bonus",
+                "rack": other_tray.tray,
+            })
+
         return out
 
     def hashed_moves(self):
@@ -219,8 +241,9 @@ class Game(SQLModelBase, table=True):
                         word += self.get_up_tiles(coords, board_tiles, play_tiles)
                         word += self.get_down_tiles(coords, board_tiles, play_tiles)
                         if len(word) > 1: extra_words.append(word)
-                main_word += self.get_left_tiles((row, col_begin), board_tiles, play_tiles)
-                main_word += self.get_right_tiles((row, max_column), board_tiles, play_tiles)
+                left_tiles = self.get_left_tiles((row, col_begin), board_tiles, play_tiles)
+                right_tiles = self.get_right_tiles((row, max_column), board_tiles, play_tiles)
+                main_word = left_tiles + main_word + right_tiles
             else:
                 col = play_coords[0][1]
                 row_begin = min([x[0] for x in play_coords])
@@ -234,8 +257,9 @@ class Game(SQLModelBase, table=True):
                         word += self.get_left_tiles(coords, board_tiles, play_tiles)
                         word += self.get_right_tiles(coords, board_tiles, play_tiles)
                         if len(word) > 1: extra_words.append(word)
-                main_word += self.get_up_tiles((row_begin, col), board_tiles, play_tiles)
-                main_word += self.get_down_tiles((row_end, col), board_tiles, play_tiles)
+                up_tiles = self.get_up_tiles((row_begin, col), board_tiles, play_tiles)
+                down_tiles += self.get_down_tiles((row_end, col), board_tiles, play_tiles)
+                main_word = up_tiles + main_word + down_tiles
 
             # must have at least one 2-letter word
             if len(main_word) < 2 and len(extra_words) == 0:
