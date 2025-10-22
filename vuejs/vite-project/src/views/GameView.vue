@@ -4,7 +4,6 @@
     <a @click="showGamesDialog">Games  <span v-if="turnCount">({{turnCount}})</span> | </a>
     <RouterLink to="/games">Archive | </RouterLink>
     <RouterLink to="/friends">Friends | </RouterLink>
-    <a @click="showMovesDialog">Moves | </a>
     <a @click="authStore.logout">Logout</a>
     </template>
 
@@ -25,7 +24,9 @@
             </div>
             <div :class="['play']">
                 <div v-if="lastMove">
-                    <div class="box">{{ lastMove.username }} - {{ lastMove.main_word || lastMove.exchange || lastMove.type.toUpperCase() }} +{{lastMove.score}}</div>
+                    <div class="box">{{ lastMove.username }} - {{ lastMove.main_word || lastMove.exchange || lastMove.type.toUpperCase() }} +{{lastMove.score}}
+                    <a @click="showMovesDialog" style="padding-left:10px; color:#aaa;">&#x25BC;</a>
+                    </div>
                 </div>
 
                 <div v-if="playScore" class="word-scores">
