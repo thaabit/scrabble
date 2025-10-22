@@ -104,9 +104,12 @@ def read_game(id: int, auth_username: str = Depends(get_authed_username)):
             "opponent":     game.opponent(auth_username),
             "whose_turn":   game.whose_turn(),
             "game_over":    game.game_over(),
-            "unseen":       game.unseen_tiles(auth_username),
-            "vowels":       game.unseen_vowels(auth_username),
-            "consonants":   game.unseen_consonants(auth_username),
+            "unseen": {
+                "tiles":      game.unseen_tiles(auth_username),
+                "vowels":     game.unseen_vowels(auth_username),
+                "consonants": game.unseen_consonants(auth_username),
+                "bag":        game.bag_count(),
+            },
         }
 
 class GameValidation(SQLModel):

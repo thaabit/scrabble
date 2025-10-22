@@ -46,12 +46,12 @@
         <div class="unseen" v-if="curGame">
             <div class="box">
                 <div class="title">Unseen Tiles</div>
-                <span v-for="(count, letter) in unseenLetters">
+                <span v-for="(count, letter) in unseen.tiles">
                 {{ letter.repeat(count) }}
                 &nbsp;
                 </span>
                 <hr>
-                <div>{{ unseenVowels + unseenConsonants }} tiles || {{ unseenVowels }} vowels | {{ unseenConsonants }} consonants</div>
+                <div>{{ unseen.vowels + unseen.consonants }} tiles ({{ unseen.bag }} in bag) || {{ unseen.vowels }} vowels | {{ unseen.consonants }} consonants</div>
             </div>
             </div>
         <div>
@@ -141,9 +141,9 @@
             <template v-for="(cell, colIndex) in row">
                 <div
                         :class="['bonus-text','board-cell', getCellClass(cell)]"
-                        v-on:drop="drop"
-                        v-on:dragover="allowDrop"
                         :style="{gridColumn: colIndex + 1, gridRow: rowIndex + 1}"
+                        @drop="drop"
+                        @dragover="allowDrop"
                         @click="placeMarker"
                         >
                         {{ getBonusText(cell.type) }}
@@ -168,7 +168,7 @@
         <div class="rack-bumper" :style="{gridColumn: 12, gridRow: rackRow, gridColumnEnd: 'span 4'}">
             <img @click="play" src="/play.svg" :class="['button-image', (!myTurn || !validPlay) ? 'disabled' : '']" />
             <img @click="pass(false)" src="/pass.svg" :class="['button-image', !myTurn ? 'disabled' : '']" />
-            <img @click="exchange(null)" src="/exchange.svg" :class="['button-image', !myTurn ? 'disabled' : '']" />
+            <img @click="exchange(null)" src="/exchange.svg" :class="['button-image', !canExchange ? 'disabled' : '']" />
         </div>
 
         <!-- User Tiles -->
@@ -235,6 +235,7 @@
     import { storeToRefs } from 'pinia'
 
     const route = useRoute()
+    const currentRouteName = computed(() => router.currentRoute.value.name);
     const playerTiles = ref([])
     const exchangeTiles = ref([])
     const board = ref([])
@@ -277,15 +278,15 @@
     const exchangeYes = ref([])
     const whoseTurn = ref(null)
     const gameId = ref(route?.params?.id)
-    const unseenLetters = ref({})
-    const unseenConsonants = ref(null)
-    const unseenVowels = ref(null)
+    const unseen = ref(null)
+    const bagCount = 0
     const curGame = ref(false)
     const lastMove = ref(null)
     const turnCount = ref(0)
     let otherKeydown = false
     let validPlay = false;
     let myTurn = false
+    let canExchange = false
 
     const authStore = useAuthStore();
     const { isAuthenticated, loggedInUser } = storeToRefs(authStore)
@@ -330,6 +331,8 @@
     }
 
     onUnmounted(() => {
+        window.removeEventListener('keydown', handleKeyPress)
+        window.removeEventListener('keyup', handleKeyUp)
         clearInterval(interval);
     });
 
@@ -567,9 +570,7 @@
         playedCoords.value = new Map
         scores.value = []
         gameOverMan.value = false
-        unseenLetters.value = []
-        unseenConsonants.value = null
-        unseenVowels.value = null
+        unseen.value = null
         curGame.value = false
         lastMove.value = null
 
@@ -611,9 +612,8 @@
             gameOverMan.value = response.data.game_over
             whoseTurn.value = response.data.whose_turn
             myTurn = response.data.whose_turn == authUsername && !gameOverMan.value
-            unseenLetters.value = response.data.unseen
-            unseenVowels.value = response.data.vowels
-            unseenConsonants.value = response.data.consonants
+            unseen.value = response.data.unseen
+            canExchange = myTurn && Number(unseen.value.bag) >= 7
             showMarker()
         })
         .catch(error => {
@@ -934,7 +934,7 @@
     function swapTiles(e) {
         // two tiles
         let a = playerTiles.value[e.currentTarget.getAttribute("index")];
-        let b = draggedEl
+        let b = playerTiles.value[draggedEl.getAttribute("index")]
 
         // swap tiles
         a.row = [b.row, b.row = a.row][0]; // swap row of tiles

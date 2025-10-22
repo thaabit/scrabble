@@ -148,6 +148,9 @@ class Game(SQLModelBase, table=True):
             scores[tray.username] = self.score(tray.username)
         return scores
 
+    def bag_count(self):
+        return len(self.bag)
+
     def unseen_tiles(self, username):
         other_trays = "".join([x.tray for x in self.trays if x.username != username])
         return Counter(sorted(other_trays + self.bag))
@@ -280,6 +283,7 @@ class Game(SQLModelBase, table=True):
         elif move.type == 'pass':
             move.data = ''
         elif move.type == 'exchange':
+            if len(self.bag) < 7: raise Exception("Not enough tiles left in bag")
             for l in move.data:
                 if not re.match(r"[A-Z?]", l): raise Exception("{l} is not a valid letter")
                 if l not in current_user_letters: raise Exception(f"{l} is not in the tray of {username}")
