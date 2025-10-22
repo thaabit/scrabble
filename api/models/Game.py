@@ -258,7 +258,7 @@ class Game(SQLModelBase, table=True):
                         word += self.get_right_tiles(coords, board_tiles, play_tiles)
                         if len(word) > 1: extra_words.append(word)
                 up_tiles = self.get_up_tiles((row_begin, col), board_tiles, play_tiles)
-                down_tiles += self.get_down_tiles((row_end, col), board_tiles, play_tiles)
+                down_tiles = self.get_down_tiles((row_end, col), board_tiles, play_tiles)
                 main_word = up_tiles + main_word + down_tiles
 
             # must have at least one 2-letter word
