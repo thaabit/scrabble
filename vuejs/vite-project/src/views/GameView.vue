@@ -628,6 +628,7 @@
     const showGamesDialog = () => gamesDialog.value.show()
 
     function pass(force) {
+        if (!myTurn) return
         if (force) {
             submitPlay('pass')
             closePassDialog()
@@ -637,6 +638,7 @@
     }
 
     function exchange(data) {
+        if (!canExchange) return
         if (data) {
             submitPlay('exchange', data)
         } else {
@@ -645,7 +647,7 @@
     }
 
     function play() {
-        if (validPlay) {
+        if (myTurn && validPlay) {
             let data = tilesOnBoard().map(tile => {
                 let letter = tile.sub ? tile.letter + tile.sub : tile.letter
                 return [letter, tile.row - 1, tile.col - 1].join(':')
