@@ -196,7 +196,7 @@
         <div
             v-for="(tile, index) in existingTiles"
             :key="`played-${index}`"
-            :class="['tile', 'played', tile.sub ? 'blank' : '']"
+            :class="['tile', 'played', tile.sub ? 'blank' : '', tile.last_play ? 'last-play' : '']"
             :style="{gridColumn: tile.col, gridRow: tile.row}"
             @dragstart="dragging"
             @dragend="nodrop"
@@ -297,17 +297,18 @@
 
     watch(() => route.params.id, (newId, oldId) => {
         gameId.value = newId
-        initializeBoard()
-        refreshGame()
+        initializeGame()
     })
 
     let interval
     onMounted(() => {
-        initializeBoard()
-        refreshGame()
+        refreshGameList()
+        initializeGame()
+
         interval = setInterval(checkRefreshGame, 1000*60)
         window.addEventListener('keydown', handleKeyPress)
         window.addEventListener('keyup', handleKeyUp)
+
         http.get('/user').then(response => {
             allUsers.value = response.data
         })
@@ -316,7 +317,15 @@
             const msg = (error.data && error.data.detail) || error.statusText;
             throw new Error(msg);
         })
+        if (!route?.params.id) return showGamesDialog();
     })
+
+
+    onUnmounted(() => {
+        window.removeEventListener('keydown', handleKeyPress)
+        window.removeEventListener('keyup', handleKeyUp)
+        clearInterval(interval);
+    });
 
     function newGame(other_user) {
         http.post('/game', { opponent: other_user }).then(response => {
@@ -329,12 +338,6 @@
             throw new Error(msg);
         });
     }
-
-    onUnmounted(() => {
-        window.removeEventListener('keydown', handleKeyPress)
-        window.removeEventListener('keyup', handleKeyUp)
-        clearInterval(interval);
-    });
 
     function compareTiles(a,b) {
         if (playDirection() == 'horizontal') {
@@ -524,12 +527,8 @@
     }
 
     function checkRefreshGame() {
-        if (!myTurn) {
-            refreshGame()
-        }
-        else {
-            refreshGameList()
-        }
+        if (!myTurn) refreshGame()
+        refreshGameList()
     }
 
     function coordsKey(row, col) {
@@ -557,14 +556,11 @@
     const toExchangeTiles = computed(() => {
         return exchangeTiles.value.filter(tile => tile.row === 2)
     })
-    function refreshGame() {
 
-        refreshGameList()
-
+    function initializeGame() {
         playedWords.value = {}
         existingTiles.value = []
         playScore.value = 0
-        playerTiles.value = []
         exchangeTiles.value = []
         exchangeNo.value = []
         playedCoords.value = new Map
@@ -574,12 +570,23 @@
         curGame.value = false
         lastMove.value = null
 
+        initializeBoard()
+        refreshGame()
+    }
 
-        if (!route?.params.id) return showGamesDialog();
+    function refreshGame() {
+
+        if (!route?.params.id) return;
 
         http.get('/game/' + route.params.id).then(response => {
+            if (whoseTurn.value == response.data.whose_turn) return;
+
+            initializeBoard()
+
             let rack_start = 5
             let exchange_start = 1
+
+            playerTiles.value = []
             response.data.tray.forEach(letter => {
                 playerTiles.value.push({
                     index:  rack_start,
@@ -596,14 +603,17 @@
                 })
                 exchangeNo.value.push(letter)
             })
-            response.data.played_tiles.forEach(move => {
+
+            existingTiles.value = []
+            response.data.played_tiles.toReversed().forEach((move, index) => {
+                let last_play = (index == 0)
                 existingTiles.value.push(...move)
                 move.forEach(tile => {
+                    tile.last_play = last_play
                     playedCoords.value.set(coordsKey(tile.row, tile.col), tile.letter);
                     board.value[tile.row - 1][tile.col - 1].previous = tile.letter
                     if (tile.sub) board.value[tile.row - 1][tile.col - 1].sub = tile.sub
                     board.value[tile.row-1][tile.col-1].value = letterPoints[tile.letter]
-                    //playedCoords.value.push([tile.row, tile.col])
                 })
             })
             curGame.value = response.data
@@ -690,21 +700,26 @@
         return Array.from(cols);
     }
 
-    function validateWords(words) {
-        if (!words.length) return;
+    let controller = null
+    function allWordsValid() {
+        let words = Object.keys(playedWords.value)
+        if (!words.length) return false;
         const query_string = words.map(word => `words=${word}`).join('&')
-        http.get(`/word?${query_string}`).then(response => {
+        if (controller) {
+            controller.abort()
+        }
+        controller = new AbortController();
+        const signal = controller.signal
+        http.get(`/word?${query_string}`, { signal }).then(response => {
             invalidWords.value = response.data.invalid
-            if (invalidWords.value.length) validPlay = false
+            controller = null
+            validPlay = !invalidWords.value.length
         })
     }
 
-    function validatePlay() {
+    function isValidPlacement() {
         let played = tilesOnBoard()
-        if (played.length === 0) {
-            validPlay = false
-            return
-        }
+        if (played.length === 0) return false
 
         // middle square
         let hasMiddle = played.filter(tile => tile.row == middle && tile.col == middle).length > 0
@@ -715,10 +730,7 @@
         let playDir = playDirection()
         let isStraight = (playDir !== "neither")
 
-        if (!isStraight) {
-            validPlay = false
-            return
-        }
+        if (!isStraight) return false
 
         // all letters connected
         let connected = true
@@ -748,15 +760,8 @@
                 row++
             }
         }
-        if (isStraight && hasMiddle && connected && played.length > 1) {
-            validPlay = true;
-            return
-        }
-
-        if (!connected) {
-            validPlay = false;
-            return;
-        }
+        if (isStraight && hasMiddle && connected && played.length > 1) return true
+        if (!connected) return false
 
         // touches at least one played tile
         let isTouching = false
@@ -776,17 +781,14 @@
             }
         })
 
-        if (!blankSet) {
-            validPlay = false
-            return
-        }
+        if (!blankSet) return false
 
         // fully valid
-        if (isTouching && isStraight && !hasMiddle && played.length >= 1) {
-            validPlay = true;
-            return
-        }
-        validPlay = false;
+        if (isTouching && isStraight && !hasMiddle && played.length >= 1) return true
+
+        // unknown
+        return false
+
     }
 
     function transposeArray(array){
@@ -837,11 +839,13 @@
     }
 
     function scorePlay() {
-        validatePlay()
         playedWords.value = {}
         playScore.value = 0
 
-        if (!validPlay) return 0;
+        if (!isValidPlacement()) {
+            validPlay = false
+            return 0;
+        }
 
         let usedRows = playedRows()
         let usedCols = playedCols()
@@ -861,11 +865,8 @@
             })
 
         }
-        validateWords(Object.keys(playedWords.value))
-        if (tilesOnBoard().length === 7) {
-            playedWords["BINGO!"] = 50
-            score += 50
-        }
+        allWordsValid()
+        if (tilesOnBoard().length === 7) score += 50
         playScore.value = score
     }
 

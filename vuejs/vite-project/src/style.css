@@ -247,6 +247,10 @@ button:focus-visible {
     justify-content:center;
     align-items:center;
 }
+.last-play {
+    background:tan !important;
+    color:black !important;
+}
 
 .triple-word {
   background: red;
