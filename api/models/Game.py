@@ -52,7 +52,7 @@ class Game(SQLModelBase, table=True):
     def moves_with_tally(self, auth_username):
         tallies = dict(zip(self.users(), [0] * len(self.users())))
         out = []
-        is_over = self.game_over()
+        is_over = self.game_over() or self.check_game_over()
         for move in self.moves:
             is_authed = is_over or (move.username == auth_username)
             fancy_move = {
@@ -71,23 +71,41 @@ class Game(SQLModelBase, table=True):
 
         if is_over:
             cur_user = self.whose_turn()
-            cur_tray = self.current_user_tray()
-            out.append({
-                "tally": tallies[cur_user],
-                "username": cur_user,
-                "score": 0,
-                "type": "pass",
-                "rack": cur_tray.tray,
-            })
-            bonus = sum([LETTER_VALUES[x] for x in cur_tray.tray]) * 2
             other_user = self.opponent(cur_user)
-            out.append({
-                "tally": tallies[other_user],
-                "username": other_user,
-                "score": bonus,
-                "type": "bonus",
-                "rack": cur_tray.tray,
-            })
+            cur_tray = self.current_user_tray()
+            other_tray = self.other_user_tray()
+            print(len(cur_tray.tray), len(other_tray.tray))
+            if len(other_tray.tray) == 0:
+                out.append({
+                    "tally": tallies[cur_user],
+                    "username": cur_user,
+                    "score": 0,
+                    "type": "pass",
+                    "rack": cur_tray.tray,
+                })
+                bonus = sum([LETTER_VALUES[x] for x in cur_tray.tray]) * 2
+                out.append({
+                    "tally": tallies[other_user],
+                    "username": other_user,
+                    "score": bonus,
+                    "type": "bonus",
+                    "rack": cur_tray.tray,
+                })
+            else:
+                out.append({
+                    "tally": tallies[cur_user],
+                    "username": cur_user,
+                    "score": -sum([LETTER_VALUES[x] for x in cur_tray.tray]),
+                    "type": "bonus",
+                    "rack": cur_tray.tray,
+                })
+                out.append({
+                    "tally": tallies[other_user],
+                    "username": other_user,
+                    "score": -sum([LETTER_VALUES[x] for x in other_tray.tray]),
+                    "type": "bonus",
+                    "rack": cur_tray.tray,
+                })
 
         return out
 
@@ -113,8 +131,8 @@ class Game(SQLModelBase, table=True):
     def check_game_over(self):
         # check for endgame
         no_more_letters = any(tray.tray == '' for tray in self.trays) and self.bag == ''
-        three_passes = len(self.moves) >= 3 and self.moves[-3].type == 'pass' and self.moves[-2].type == 'pass' and self.moves[-1] == 'pass'
-        if no_more_letters or three_passes:
+        six_scoreless_plays = len(self.moves) >= 6 and sum(m.score for m in self.moves[-6:-1]) == 0
+        if no_more_letters or six_scoreless_plays:
             self.finished = datetime.utcnow()
             return True
 
@@ -351,6 +369,11 @@ class Game(SQLModelBase, table=True):
         moves = self.moves
         trays = sorted(self.trays, key=lambda x: x.id)
         return trays[len(moves) % len(trays)]
+
+    def other_user_tray(self):
+        moves = self.moves
+        trays = sorted(self.trays, key=lambda x: x.id)
+        return trays[len(moves) % len(trays) - 1]
 
     def whose_turn(self):
         return self.current_user_tray().username

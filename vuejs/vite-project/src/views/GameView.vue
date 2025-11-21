@@ -24,7 +24,7 @@
             </div>
             <div :class="['play']">
                 <div v-if="lastMove">
-                    <div class="box">{{ lastMove.username }} - {{ lastMove.main_word || lastMove.exchange || lastMove.type.toUpperCase() }} +{{lastMove.score}}
+                    <div class="box">{{ lastMove.username }} - {{ lastMove.main_word || lastMove.exchange || lastMove.type.toUpperCase() }} {{lastMove.score > 0 ? '+' : ''}}{{lastMove.score}}
                     <a @click="showMovesDialog" style="padding-left:10px; color:#aaa;">&#x25BC;</a>
                     </div>
                 </div>
@@ -69,7 +69,7 @@
         <div v-for="(move) in curGame.moves" :class="['move', move.username===authUsername ? 'you' : '']">
             <div>{{ move.username }}</div>
             <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
-            <div>{{ move.tally }} +{{ move.score }}</div>
+            <div>{{ move.tally }} {{move.score > 0 ? '+' : ''}} {{ move.score }}</div>
             <div></div>
             <div>{{move.rack}}</div>
             <div>{{ move.tally + move.score }}</div>
@@ -513,6 +513,7 @@
     function changeGame(id) {
         router.push(`/game/${id}`)
         closeGamesDialog()
+        initializeGame()
     }
 
     function changeDirection() {
@@ -575,13 +576,9 @@
     }
 
     function refreshGame() {
-
         if (!route?.params.id) return;
 
         http.get('/game/' + route.params.id).then(response => {
-            if (whoseTurn.value == response.data.whose_turn) return;
-
-            initializeBoard()
 
             let rack_start = 5
             let exchange_start = 1
@@ -673,7 +670,8 @@
         }
         if (data) body.data = data
         http.post('/move', body).then(response => {
-            refreshGame()
+            refreshGameList()
+            initializeGame()
             showGamesDialog()
         })
     }
