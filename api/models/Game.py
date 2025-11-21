@@ -74,7 +74,6 @@ class Game(SQLModelBase, table=True):
             other_user = self.opponent(cur_user)
             cur_tray = self.current_user_tray()
             other_tray = self.other_user_tray()
-            print(len(cur_tray.tray), len(other_tray.tray))
             if len(other_tray.tray) == 0:
                 out.append({
                     "tally": tallies[cur_user],
@@ -104,7 +103,7 @@ class Game(SQLModelBase, table=True):
                     "username": other_user,
                     "score": -sum([LETTER_VALUES[x] for x in other_tray.tray]),
                     "type": "bonus",
-                    "rack": cur_tray.tray,
+                    "rack": other_tray.tray,
                 })
 
         return out
