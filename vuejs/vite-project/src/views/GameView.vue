@@ -18,7 +18,7 @@
 
         <div v-if="curGame" class="cur-game">
             <div :class="['you', myTurn ? 'current' : '']" >
-                <div class="title">You</div>
+                <div class="title">You ({{authUsername}})</div>
                 <div class="score">{{curGame.scores[authUsername]}}
                 <span v-if="playScore">+{{ playScore }}</span></div>
             </div>
@@ -31,9 +31,9 @@
 
                 <div v-if="playScore" class="word-scores">
                 <template
-                v-for="(score, word) in playedWords"
+                v-for="play in playedWords"
                 >
-                <div :class="{ 'invalid-word': invalidWords.includes(word) }">{{word}}</div><div>{{score}}</div>
+                <div :class="{ 'invalid-word': invalidWords.includes(play[0]) }">{{play[0]}}</div><div>{{play[1]}}</div>
                 </template>
                 </div>
             </div>
@@ -156,7 +156,7 @@
         <div class="rack-bumper" :style="{gridColumn: 1, gridRow: rackRow, gridColumnEnd: 'span 4'}">
             <img @click="showKeyboard" src="/keyboard.svg" class="button-image hide-non-mobile"/>
             <img @click="shuffleTray"  src="/shuffle.svg"  class="button-image"/>
-            <img @click="recallTiles"  src="/recall.svg"   class="button-image"/>
+            <img @click="recallAllTiles"  src="/recall.svg"   class="button-image"/>
         </div>
         <div
             v-for="(col) in [...Array(7).keys()]"
@@ -196,7 +196,7 @@
         <div
             v-for="(tile, index) in existingTiles"
             :key="`played-${index}`"
-            :class="['tile', 'played', tile.sub ? 'blank' : '', tile.last_play ? 'last-play' : '']"
+            :class="['tile', 'played', tile.sub ? 'blank' : '', tile.most_recent_play ? 'last-play' : '']"
             :style="{gridColumn: tile.col, gridRow: tile.row}"
             @dragstart="dragging"
             @dragend="nodrop"
@@ -240,7 +240,6 @@
     const exchangeTiles = ref([])
     const board = ref([])
     const existingTiles = ref([])
-    const playedCoords = ref(new Map)
     const scores = ref([])
     const games = ref([])
     const marker = ref(null)
@@ -250,7 +249,7 @@
     const rackRow = 16
     const rackStart = 5
     const middle = 8
-    const playedWords = ref({})
+    const playedWords = ref([])
     const invalidWords = ref([])
     const playScore = ref(0)
     const gameOverMan = ref(false)
@@ -350,7 +349,7 @@
     }
 
     function lastPlayedTile() {
-        let sorted = tilesOnBoard().sort(compareTiles);
+        let sorted = tilesInPlay().sort(compareTiles);
         return sorted[sorted.length - 1]
     }
 
@@ -366,9 +365,6 @@
         if (!tile) return false
 
         if (tile.row != rackRow) {
-            delete board.value[tile.row-1][tile.col-1].letter
-            delete board.value[tile.row-1][tile.col-1].value
-            delete board.value[tile.row-1][tile.col-1].sub
             tile.col = openTrayCols().shift()
             tile.row = rackRow
             scorePlay()
@@ -405,7 +401,7 @@
             shuffleTray()
         }
         else if (key == 'ESCAPE') {
-            recallTiles()
+            recallAllTiles()
         }
         else if (key == 'TAB') {
             e.preventDefault()
@@ -488,9 +484,24 @@
         return [row, col]
     }
 
-    function boardAt(row, col) {
-        return board.value[row - 1][col - 1]
+    function existingTileAt(row, col) {
+        return existingTiles.value.find(tile => { return (tile.row === Number(row) && tile.col === Number(col)) })
     }
+    function tileAt(row, col) {
+        return playerTiles.value.find(tile => { return (tile.row === Number(row) && tile.col === Number(col)) })
+    }
+    function anyTileAt(row, col) {
+        return existingTileAt(row, col) || tileAt(row, col)
+    }
+
+    function tilesInPlay() {
+        return playerTiles.value.filter(tile => { return tile.row !== rackRow })
+    }
+
+    function tilesOnRack() {
+        return playerTiles.value.filter(tile => tile.row === rackRow)
+    }
+
 
     // bump marker past any existing tiles
     function bumpMarker(dir=textRight.value ? 'right' : 'down', clobber=false) {
@@ -498,12 +509,10 @@
         if (clobber) recallTile(lastPlayedTile())
 
         let count = 0
-        let square = boardAt(row, col)
-        while (square && (square.previous || square.letter)) {
+        while (anyTileAt(row, col)) {
             [row, col] = nextSquare(row, col, dir)
             count++
             if (count > 20) break
-            square = boardAt(row, col)
         }
 
         marker.value.style.gridRow = row
@@ -532,14 +541,6 @@
         refreshGameList()
     }
 
-    function coordsKey(row, col) {
-        return row + "|" + col
-    }
-
-    function existingLetter(row, col) {
-        return playedCoords.value.get(coordsKey(row, col))
-    }
-
     function refreshGameList() {
         http.get('/game?type=active').then(response => {
             games.value = response.data
@@ -559,12 +560,11 @@
     })
 
     function initializeGame() {
-        playedWords.value = {}
+        playedWords.value = []
         existingTiles.value = []
         playScore.value = 0
         exchangeTiles.value = []
         exchangeNo.value = []
-        playedCoords.value = new Map
         scores.value = []
         gameOverMan.value = false
         unseen.value = null
@@ -603,14 +603,11 @@
 
             existingTiles.value = []
             response.data.played_tiles.toReversed().forEach((move, index) => {
-                let last_play = (index == 0)
+                let most_recent_play = (index == 0)
                 existingTiles.value.push(...move)
                 move.forEach(tile => {
-                    tile.last_play = last_play
-                    playedCoords.value.set(coordsKey(tile.row, tile.col), tile.letter);
-                    board.value[tile.row - 1][tile.col - 1].previous = tile.letter
-                    if (tile.sub) board.value[tile.row - 1][tile.col - 1].sub = tile.sub
-                    board.value[tile.row-1][tile.col-1].value = letterPoints[tile.letter]
+                    tile.most_recent_play = (index == 0)
+                    tile.existing = true
                 })
             })
             curGame.value = response.data
@@ -655,7 +652,7 @@
 
     function play() {
         if (myTurn && validPlay) {
-            let data = tilesOnBoard().map(tile => {
+            let data = tilesInPlay().map(tile => {
                 let letter = tile.sub ? tile.letter + tile.sub : tile.letter
                 return [letter, tile.row - 1, tile.col - 1].join(':')
             }).join('::')
@@ -688,21 +685,21 @@
 
     function playedRows() {
         let rows = new Set();
-        tilesOnBoard().forEach(letter => rows.add(letter.row));
+        tilesInPlay().forEach(letter => rows.add(letter.row));
         return Array.from(rows);
     }
 
     function playedCols() {
         let cols = new Set();
-        tilesOnBoard().forEach(letter => cols.add(letter.col));
+        tilesInPlay().forEach(letter => cols.add(letter.col));
         return Array.from(cols);
     }
 
     let controller = null
     function allWordsValid() {
-        let words = Object.keys(playedWords.value)
-        if (!words.length) return false;
-        const query_string = words.map(word => `words=${word}`).join('&')
+        if (!playedWords.value.length) return false;
+        const query_string = playedWords.value.map(word => `words=${word[0]}`).join('&')
+        console.log(query_string)
         if (controller) {
             controller.abort()
         }
@@ -716,7 +713,7 @@
     }
 
     function isValidPlacement() {
-        let played = tilesOnBoard()
+        let played = tilesInPlay()
         if (played.length === 0) return false
 
         // middle square
@@ -737,7 +734,7 @@
             let col = Math.min(...usedCols)
             let end = Math.max(...usedCols)
             while (col <= end) {
-                let existing = existingLetter(row, col)
+                let existing = existingTileAt(row, col)
                 if (!usedCols.includes(col) && !existing) {
                     connected = false;
                     break
@@ -750,7 +747,7 @@
             let row = Math.min(...usedRows)
             let end = Math.max(...usedRows)
             while (row <= end) {
-                let existing = existingLetter(row, col)
+                let existing = existingTileAt(row, col)
                 if (!usedRows.includes(row) && !existing) {
                     connected = false;
                     break
@@ -766,7 +763,9 @@
         let blankSet = true
         played.forEach(tile => {
             [[0,1],[1,0],[-1,0],[0,-1]].forEach(dir => {
-                if (playedCoords.value.get(coordsKey(tile.row + dir[0], tile.col + dir[1]))) {
+
+                console.log(existingTileAt(tile.row + dir[0], tile.col + dir[1]))
+                if (existingTileAt(tile.row + dir[0], tile.col + dir[1])) {
                     isTouching = true
                     return;
                 }
@@ -806,8 +805,8 @@
 
         // find start of word
         while (true) {
-            let cell = b[row][col]
-            if (col < 0 || cell.value == null) break;
+            let tile = direction == 'vertical' ? anyTileAt(col+1, row+1) : anyTileAt(row+1, col+1)
+            if (col < 0 || tile == undefined) break;
             col--
         }
         col += 1
@@ -819,25 +818,29 @@
         let dws = 0
         let word = ''
         while (true) {
-            let cell = b[row][col]
-            if (col >= b.length || cell.value == null) break;
-            score += cell.value
-            word += cell.sub || cell.letter || cell.previous
-            if (cell.letter && cell.type == 'triple-word') tws++
-            if (cell.letter && cell.type == 'double-word') dws++
-            if (cell.letter && cell.type == 'center') dws++
+            let tile = direction == 'vertical' ? anyTileAt(col+1,row+1) : anyTileAt(row+1, col+1)
+            if (col >= b.length || tile == undefined) break;
+            score += modifiedLetterValue(letterPoints[tile.letter], row+1, col+1)
+            word += tile.sub || tile.letter
+
+            if (!tile.existing) {
+                let cell = b[row][col]
+                if (cell.type == 'triple-word') tws++
+                if (cell.type == 'double-word') dws++
+                if (cell.type == 'center') dws++
+            }
             col++
             len++
         }
         if (len < 2) return 0
         score *= 3**tws
         score *= 2**dws
-        playedWords.value[word] = score
+        playedWords.value.push([word, score])
         return score
     }
 
     function scorePlay() {
-        playedWords.value = {}
+        playedWords.value = []
         playScore.value = 0
 
         if (!isValidPlacement()) {
@@ -864,7 +867,7 @@
 
         }
         allWordsValid()
-        if (tilesOnBoard().length === 7) score += 50
+        if (tilesInPlay().length === 7) score += 50
         playScore.value = score
     }
 
@@ -876,31 +879,13 @@
         return val
     }
 
-    function tileAt(row, col) {
-        let blah = playerTiles.value.find(tile => {
-            return (tile.row === Number(row) && tile.col === Number(col))
-        })
-        return blah
-    }
-
-    function tilesOnBoard() {
-        let blah = playerTiles.value.filter(tile => {
-            return tile.row !== rackRow
-        })
-        return blah
-    }
-
-    function tilesOnRack() {
-        return playerTiles.value.filter(tile => tile.row === rackRow)
-    }
-
     function openTrayCols() {
         let taken = tilesOnRack().map(tile => tile.col);
         let trayCols = Array.from(new Array(7), (x, i) => i + rackStart);
         return trayCols.filter(index => !taken.includes(index))
     }
 
-    function recallTiles() {
+    function recallAllTiles() {
         let openCols = openTrayCols()
         playerTiles.value.forEach(tile => recallTile(tile))
         scorePlay()
@@ -921,11 +906,6 @@
 
         let row = Number(el.style.gridRow)
         let col = Number(el.style.gridColumn)
-        if (row != rackRow) {
-            delete board.value[row-1][col-1].letter
-            delete board.value[row-1][col-1].value
-            delete board.value[row-1][col-1].sub
-        }
     }
 
     function allowDrop(e) {
@@ -950,25 +930,15 @@
     function drop(e) {
         e.preventDefault();
 
-        // board cell
         let cell = e.target;
         let row = Number(cell.style.gridRow)
         let col = Number(cell.style.gridColumn)
         placeTile(tileAt(draggedEl.style.gridRow, draggedEl.style.gridColumn), row, col)
     }
 
-    let placedTiles = []
     function placeTile(tile, row, col) {
         tile.col = col
         tile.row = row
-        tile.onboard = row != rackRow
-        if (row != rackRow) {
-            board.value[row-1][col-1].letter = tile.letter
-            if (tile.sub) board.value[row-1][col-1].sub = tile.sub
-            board.value[row-1][col-1].value = modifiedLetterValue(letterPoints[tile.letter], row, col)
-            placedTiles.push(tile)
-        }
-
         scorePlay()
     }
 
@@ -1082,10 +1052,6 @@
         let tile = blankTile.value
         tile.sub = letter
         let row = tile.row
-        if (tile.row != rackRow) {
-            board.value[row - 1][tile.col - 1].letter = tile.letter
-            board.value[row - 1][tile.col - 1].sub = tile.sub
-        }
         scorePlay()
         blanksDialog.value.close()
     }
