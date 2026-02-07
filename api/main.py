@@ -137,11 +137,13 @@ def list_games(type: str = 'active', auth_username: str = Depends(get_authed_use
             auth_user = user_by_username(auth_username)
             session.add(auth_user)
             out = []
-            sql = f'SELECT g.id, gu.tray FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un'
+            sql = f'SELECT g.id, gu.tray, gu.ack_end FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un'
             if type == 'active':
                 sql += " AND g.finished='0000-00-00 00:00:00'"
-            if type == 'inactive':
+            elif type == 'inactive':
                 sql += " AND g.finished!='0000-00-00 00:00:00'"
+            elif type == 'unacknowledged':
+                sql += " AND g.finished!='0000-00-00 00:00:00' AND gu.ack_end = 0 ORDER BY g.finished"
             games = session.execute(text(sql), params={"un": auth_username}).fetchall()
             for row in session.execute(text(sql), params={"un": auth_username}).fetchall():
                 game = session.get(Game, row[0])
@@ -192,6 +194,18 @@ def list_users(auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         users = session.exec(select(User)).all()
         return [user.username for user in users if user.username != auth_username]
+
+@router.patch("/game/acknowledge/{game_id}")
+def add_move(game_id: str, auth_username: str = Depends(get_authed_username)):
+    with Session(engine) as session:
+        game_user = session.exec(select(GameUser).where(and_(GameUser.game_id == int(game_id), GameUser.username == auth_username))).one()
+        if not game_user: raise HTTPException(status_code=404, detail='Game not found')
+        game_user.ack_end = 1
+        session.add(game_user)
+        session.commit()
+        session.refresh(game_user)
+        return { "success": 1 }
+
 
 @router.post("/move")
 def add_move(move: Move, auth_username: str = Depends(get_authed_username)):
