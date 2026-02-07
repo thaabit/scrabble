@@ -78,23 +78,47 @@
         <div v-else>No moves yet</div>
     </Dialog>
     <Dialog ref="gamesDialog">
+
         <!-- active games -->
         <div class="title">Active Games
             <button @click="showNewGameDialog">New Game</button>
         </div>
         <div class="other-games">
-        <div v-for="(game) in games"
+            <div v-for="(game) in active_games"
+                @click="changeGame(game.id)"
+                class="game clickable"
+            >
+            <div :class="(game.my_turn) ? 'current' : ''">
+                <div class="user">You {{ game.scores[authUsername] }}</div>
+            </div>
+            <div :class="(!game.my_turn) ? 'current' : ''">
+                <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
+            </div>
+            <div>
+            <button @click="changeGame(game.id)">Go</button>
+            </div>
+        </div>
+        </div>
+
+        <!--unacknowledged finished games-->
+        <div class="title" v-if="finished_games.length > 0">Finished Games</div>
+        <div class="other-games">
+        <div v-for="(game) in finished_games"
             @click="changeGame(game.id)"
             class="game clickable"
         >
-        <div :class="(game.my_turn) ? 'current' : ''">
-            <div class="user">You {{ game.scores[authUsername] }}</div>
+            <div>
+                <div class="user">You {{ game.scores[authUsername] }}</div>
+            </div>
+            <div>
+                <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
+            </div>
+            <div>
+            <button @click="acknowledge_game(game.id)">Dismiss</button>
+            </div>
         </div>
-        <div :class="(!game.my_turn) ? 'current' : ''">
-            <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
         </div>
-        </div>
-        </div>
+
     </Dialog>
     <Dialog ref="passDialog">
         <div>You sure about that?</div>
@@ -241,7 +265,8 @@
     const board = ref([])
     const existingTiles = ref([])
     const scores = ref([])
-    const games = ref([])
+    const active_games = ref([])
+    const finished_games = ref([])
     const marker = ref(null)
     const textRight = ref(true)
 
@@ -543,11 +568,19 @@
 
     function refreshGameList() {
         http.get('/game?type=active').then(response => {
-            games.value = response.data
+            active_games.value = response.data
             turnCount.value = response.data.filter(game => {
                 return game.whose_turn === authUsername
             }).length
             document.title = turnCount.value > 0 ? `(${turnCount.value}) - Games` : 'Games'
+        })
+        .catch(error => {
+            const msg = (error.data && error.data.detail) || error.statusText;
+            throw new Error(msg);
+        });
+        http.get('/game?type=unacknowledged').then(response => {
+            console.log(finished_games)
+            finished_games.value = response.data
         })
         .catch(error => {
             const msg = (error.data && error.data.detail) || error.statusText;
@@ -669,6 +702,13 @@
         http.post('/move', body).then(response => {
             refreshGameList()
             initializeGame()
+            showGamesDialog()
+        })
+    }
+
+    function acknowledge_game(game_id) {
+        http.patch('/game/acknowledge/' + game_id).then(response => {
+            refreshGameList()
             showGamesDialog()
         })
     }
@@ -820,7 +860,9 @@
         while (true) {
             let tile = direction == 'vertical' ? anyTileAt(col+1,row+1) : anyTileAt(row+1, col+1)
             if (col >= b.length || tile == undefined) break;
-            score += modifiedLetterValue(letterPoints[tile.letter], row+1, col+1)
+            let points = letterPoints[tile.letter]
+            points = tile.existing ? points : modifiedLetterValue(points, row+1, col+1)
+            score += points
             word += tile.sub || tile.letter
 
             if (!tile.existing) {
@@ -933,7 +975,8 @@
         let cell = e.target;
         let row = Number(cell.style.gridRow)
         let col = Number(cell.style.gridColumn)
-        placeTile(tileAt(draggedEl.style.gridRow, draggedEl.style.gridColumn), row, col)
+        let tile = tileAt(draggedEl.style.gridRow, draggedEl.style.gridColumn)
+        if (tile) placeTile(tile, row, col)
     }
 
     function placeTile(tile, row, col) {

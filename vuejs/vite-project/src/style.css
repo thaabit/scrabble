@@ -427,10 +427,6 @@ a:hover {
     color: white;
     border-radius: 0 15px 15px 0;
 }
-.other-games {
-    height:40vmin;
-    overflow-y:scroll;
-}
 .word-scores {
     display:grid;
     grid-template-columns: repeat(6, 1fr);
@@ -446,7 +442,7 @@ a:hover {
 
 .other-games .game, .all-games .game {
     display:grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr .5fr;
     background:#555;
     border-radius:5px;
     margin-bottom:10px;

@@ -11,4 +11,5 @@ class GameUser(SQLModelBase, table=True):
     username: str = Field(foreign_key="user.username")
     tray: str | None = Field(default='')
     game: Optional["Game"] = Relationship(back_populates = "trays")
+    ack_end: int | None = Field(default=0)
     __tablename__ = "game_user"
