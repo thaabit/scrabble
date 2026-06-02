@@ -228,8 +228,12 @@ class Game(SQLModelBase, table=True):
             if len(conflicts) > 0: raise Exception("Cannot put a letter where another already exists")
 
             # letters must all be in same column or row
-            horizontal = all(x[0] == play_coords[0][0] for x in play_coords)
-            vertical = all(x[1] == play_coords[0][1] for x in play_coords)
+            col_begin = min([x[1] for x in play_coords])
+            col_end   = max([x[1] for x in play_coords])
+            row_begin = min([x[0] for x in play_coords])
+            row_end   = max([x[0] for x in play_coords])
+            horizontal = all(c[0] == play_coords[0][0] for c in play_coords) and (((row_begin, col_begin - 1) in board_tiles) or ((row_end, col_end + 1) in board_tiles))
+            vertical   = all(c[1] == play_coords[0][1] for c in play_coords) and (((row_begin - 1, col_begin) in board_tiles) or ((row_end + 1, col_end) in board_tiles))
             if not (horizontal or vertical): raise Exception("All letters must be in same row or column")
 
             # must connect to existing letter
@@ -250,9 +254,7 @@ class Game(SQLModelBase, table=True):
             extra_words = []
             if horizontal:
                 row = play_coords[0][0]
-                col_begin = min([x[1] for x in play_coords])
-                max_column = max([x[1] for x in play_coords])
-                for col in range(col_begin, max_column + 1):
+                for col in range(col_begin, col_end + 1):
                     coords = (row, col)
                     if coords not in combined_coords: raise Exception("There are spaces in the word")
                     main_word.append(self.tile_data(coords, play_tiles))
@@ -262,12 +264,10 @@ class Game(SQLModelBase, table=True):
                         word += self.get_down_tiles(coords, board_tiles, play_tiles)
                         if len(word) > 1: extra_words.append(word)
                 left_tiles = self.get_left_tiles((row, col_begin), board_tiles, play_tiles)
-                right_tiles = self.get_right_tiles((row, max_column), board_tiles, play_tiles)
+                right_tiles = self.get_right_tiles((row, col_end), board_tiles, play_tiles)
                 main_word = left_tiles + main_word + right_tiles
             else:
                 col = play_coords[0][1]
-                row_begin = min([x[0] for x in play_coords])
-                row_end = max([x[0] for x in play_coords])
                 for row in range(row_begin, row_end + 1):
                     coords = (row, col)
                     if coords not in combined_coords: raise Exception("There are spaces in the word")

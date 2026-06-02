@@ -196,7 +196,7 @@ def list_users(auth_username: str = Depends(get_authed_username)):
         return [user.username for user in users if user.username != auth_username]
 
 @router.patch("/game/acknowledge/{game_id}")
-def add_move(game_id: str, auth_username: str = Depends(get_authed_username)):
+def ack_move(game_id: str, auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         game_user = session.exec(select(GameUser).where(and_(GameUser.game_id == int(game_id), GameUser.username == auth_username))).one()
         if not game_user: raise HTTPException(status_code=404, detail='Game not found')

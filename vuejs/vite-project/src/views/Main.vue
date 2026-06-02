@@ -114,7 +114,7 @@
                 <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
             </div>
             <div>
-            <button @click="acknowledge_game(game.id)">Dismiss</button>
+            <button @click.prevent="acknowledge_game(game.id)">Dismiss</button>
             </div>
         </div>
         </div>
@@ -337,7 +337,7 @@
             allUsers.value = response.data
         })
         .catch(error => {
-            console.log(error)
+            warn(error)
             const msg = (error.data && error.data.detail) || error.statusText;
             throw new Error(msg);
         })
@@ -357,10 +357,14 @@
             router.push(`/game/${response.data.id}`)
         })
         .catch(error => {
-            console.log(error)
+            warn(error)
             const msg = (error.data && error.data.detail) || error.statusText;
             throw new Error(msg);
         });
+    }
+
+    function warn(msg) {
+        console.log(msg)
     }
 
     function compareTiles(a,b) {
@@ -579,7 +583,6 @@
             throw new Error(msg);
         });
         http.get('/game?type=unacknowledged').then(response => {
-            console.log(finished_games)
             finished_games.value = response.data
         })
         .catch(error => {
@@ -617,6 +620,7 @@
             let exchange_start = 1
 
             playerTiles.value = []
+            exchangeTiles.value = []
             response.data.tray.forEach(letter => {
                 playerTiles.value.push({
                     index:  rack_start,
@@ -654,7 +658,7 @@
             showMarker()
         })
         .catch(error => {
-            console.log(error)
+            warn(error)
             const msg = (error.data && error.data.detail) || error.statusText;
             throw new Error(msg);
         });
@@ -739,7 +743,6 @@
     function allWordsValid() {
         if (!playedWords.value.length) return false;
         const query_string = playedWords.value.map(word => `words=${word[0]}`).join('&')
-        console.log(query_string)
         if (controller) {
             controller.abort()
         }
@@ -804,7 +807,6 @@
         played.forEach(tile => {
             [[0,1],[1,0],[-1,0],[0,-1]].forEach(dir => {
 
-                console.log(existingTileAt(tile.row + dir[0], tile.col + dir[1]))
                 if (existingTileAt(tile.row + dir[0], tile.col + dir[1])) {
                     isTouching = true
                     return;
