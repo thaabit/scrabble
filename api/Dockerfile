@@ -6,7 +6,7 @@ WORKDIR /api
 RUN apt-get update && apt-get install -y --no-install-recommends vim build-essential wget git curl libmariadb3 libmariadb-dev \
     && apt-get clean autoclean \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/*
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \

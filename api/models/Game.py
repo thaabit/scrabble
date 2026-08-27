@@ -232,8 +232,21 @@ class Game(SQLModelBase, table=True):
             col_end   = max([x[1] for x in play_coords])
             row_begin = min([x[0] for x in play_coords])
             row_end   = max([x[0] for x in play_coords])
-            horizontal = all(c[0] == play_coords[0][0] for c in play_coords) and (((row_begin, col_begin - 1) in board_tiles) or ((row_end, col_end + 1) in board_tiles))
-            vertical   = all(c[1] == play_coords[0][1] for c in play_coords) and (((row_begin - 1, col_begin) in board_tiles) or ((row_end + 1, col_end) in board_tiles))
+            horizontal = False
+            vertical   = False
+
+            if len(play_coords) > 1:
+                all_letters_horizontal = all(c[0] == play_coords[0][0] for c in play_coords)
+                all_letters_vertical   = all(c[1] == play_coords[0][1] for c in play_coords)
+                horizontal = all_letters_horizontal
+                vertical   = all_letters_vertical
+            else:
+                connected_horizontally = ((row_begin, col_begin - 1) in board_tiles) or ((row_end, col_end + 1) in board_tiles)
+                connected_vertically   = ((row_begin - 1, col_begin) in board_tiles) or ((row_end + 1, col_end) in board_tiles)
+
+                horizontal = connected_horizontally
+                vertical   = connected_vertically
+
             if not (horizontal or vertical): raise Exception("All letters must be in same row or column")
 
             # must connect to existing letter

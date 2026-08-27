@@ -2,12 +2,12 @@ import { useRoute, createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store.js';
 import { computed } from 'vue'
 
-import HomeView     from '@/views/HomeView.vue'
-import LoginView    from '@/views/LoginView.vue'
-import SignupView   from '@/views/SignupView.vue'
-import GameView     from '@/views/GameView.vue'
-import Games        from '@/views/Games.vue'
-import Friends      from '@/views/Friends.vue'
+import LoginView    from '@/views/Login.vue'
+import SignupView   from '@/views/Signup.vue'
+import MainView     from '@/views/Main.vue'
+import ArchiveView  from '@/views/Archive.vue'
+import FriendsView  from '@/views/Friends.vue'
+import GamesView    from '@/views/Games.vue'
 
 import { useFavicon } from '@vueuse/core'
 const favicon = useFavicon()
@@ -17,12 +17,13 @@ export const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     linkActiveClass: 'active',
     routes: [
-        { path: '/', component: GameView },
-        { path: '/login', component: LoginView },
-        { path: '/signup', component: SignupView },
-        { name: 'game', path: '/game/:id(\\d+)', component: GameView },
-        { path: '/games', component: Games },
-        { path: '/friends', component: Friends },
+        { path: '/',        component: MainView },
+        { path: '/login',   component: LoginView },
+        { path: '/signup',  component: SignupView },
+        { path: '/archive', component: ArchiveView },
+        { path: '/friends', component: FriendsView },
+        { path: '/games',   component: GamesView },
+        { name: 'game', path: '/game/:id(\\d+)', component: MainView },
     ]
 });
 

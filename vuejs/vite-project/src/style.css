@@ -51,19 +51,21 @@ body {
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  margin:auto;
+  max-width:400px;
+  padding:20px 0;
 }
 
 button {
-  border: 1px solid transparent;
+  border: 1px solid #646cff;
   padding: 0.6em 1.2em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: royalblue;
   cursor: pointer;
+  font-size: larger;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: #fff;
 }
 button:focus,
 button:focus-visible {
@@ -83,7 +85,6 @@ button:focus-visible {
     dialog {
         align-self: safe center;
         width:80vw;
-        border-radius:15px;
         height:50vh;
         overflow-y:scroll;
     }
@@ -109,8 +110,8 @@ button:focus-visible {
     }
     button {
         font-size: 3vmin;
-        padding:2px;
-        border-radius:5px;
+        padding:5px 10px;
+        border-radius:10px;
     }
     .box {
         padding:10px;
@@ -124,7 +125,7 @@ button:focus-visible {
         font-size:4vmin;
     }
     .cur-game .title {
-        font-size:2vh;
+        font-size:1.5vh;
     }
     .cur-game .score {
         padding:3px 10px;
@@ -132,7 +133,7 @@ button:focus-visible {
     }
     .title {
         font-weight:bold;
-        font-size:4vmin;
+        font-size:2vh;
     }
     .button-image {
         width:1.5em;
@@ -149,12 +150,11 @@ button:focus-visible {
     dialog {
         align-self: safe center;
         width:35%;
-        border-radius:15px;
     }
     .hide-non-mobile  { display: none !important; }
     .two-columns {
         display:grid;
-        grid-template-columns: 2fr 1fr;
+        grid-template-columns: 2fr 1fr 1fr;
         gap: 40px;
         max-width:1600px;
     }
@@ -183,13 +183,16 @@ button:focus-visible {
         padding:10px;
         font-size:1.3vh;
     }
+    .cur-game {
+        margin-bottom:10px;
+    }
     .cur-game .score {
         padding:5px 10px;
         font-size:3vh;
         white-space: nowrap;
     }
     .cur-game .title {
-        font-size:1.8vh;
+        font-size:3vh;
     }
     .game {
         margin-bottom:10px;
@@ -226,7 +229,7 @@ button:focus-visible {
   grid-template-columns: repeat(15, 1fr) / repeat(15, 1fr);
   border: 2px solid #333;
   background: #aaa;
-  border-radius:15px;
+  border-radius:5px;
   align-items: center;
   justify-items: center;
 }
@@ -256,7 +259,7 @@ button:focus-visible {
   background: red;
 }
 
-.double-word {
+.board .double-word, .board .center {
   background: darkorange;
   color:white;
 }
@@ -268,10 +271,6 @@ button:focus-visible {
 
 .double-letter {
   background: lightblue;
-}
-
-.center {
-  background: darkorange;
 }
 
 .points {
@@ -288,16 +287,6 @@ button:focus-visible {
 .has-letter {
   background: #f8f9fa;
 }
-::backdrop {
-  background-image: linear-gradient(
-    45deg,
-    magenta,
-    rebeccapurple,
-    dodgerblue,
-    green
-  );
-  opacity: 0.75;
-}
 .letter-choice {
     display:grid;
     grid-template-columns: repeat(7, 1fr);
@@ -306,7 +295,7 @@ button:focus-visible {
     display:inline-flex;
     cursor:pointer;
 }
-img.disabled {
+button.disabled, img.disabled {
     opacity:.3;
     cursor:not-allowed;
 }
@@ -400,52 +389,61 @@ a:hover {
 }
 .cur-game {
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
     background:#aaa;
-    border-radius:15px;
-}
-.cur-game .title {
-    font-weight: bold;
-    padding:10px;
+    border-radius:5px;
 }
 .cur-game .current {
     color: #fff !important;
     background: #5B56B0 !important;
 }
 .cur-game .you {
+    font-weight: bold;
+    padding:10px;
     background: #444;
     color: white;
-    border-radius: 15px 0 0 15px;
 }
-.cur-game .play {
-    background: #444 !important;
-    color: white !important;
-    padding:10px 5px;
+.play {
+    background: #ccc !important;
+    color: #555 !important;
+    font-weight:bold;
+    padding:5px 10px;
+    margin-left:10px;
+    border-radius:5px;
+}
+.all-moves {
+    padding: 3px 6px;
 }
 .cur-game .other {
+    font-weight: bold;
+    padding:10px;
     background: #444;
     color: white;
-    border-radius: 0 15px 15px 0;
 }
 .word-scores {
     display:grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: 1fr 1fr;
     background:#fff;
     color:#555;
     padding:5px;
     border-radius:5px;
     font-weight:bold;
+    width:30%;
 }
 .word-scores div {
     padding:5px;
 }
 
+.other-games .center {
+    place-self: center;
+}
 .other-games .game, .all-games .game {
     display:grid;
     grid-template-columns: 1fr 1fr .5fr;
     background:#555;
     border-radius:5px;
     margin-bottom:10px;
+    border:1px solid transparent;
 }
 .other-games .user, .all-games .user{
     font-weight: bold;
@@ -470,19 +468,28 @@ a:hover {
     cursor: pointer;
 }
 .box {
-    border-radius:10px;
+    border-radius:5px;
     background:#777;
     padding:10px;
 }
+.box-top {
+    border-radius:5px 5px 0 0;
+    background:#777;
+    padding:10px;
+}
+.box-bottom {
+    border-radius:0 0 5px 5px;
+    background:#777;
+}
 .moves {
-    height: 30vh;
+    height: 50vh;
     overflow-y:scroll;
     padding:10px;
 }
 .moves .move {
     display:grid;
     grid-template-columns: 1fr 1fr 1fr;
-    border-radius: 15px;
+    border-radius: 5px;
     background: #333;
     margin-bottom:5px;
     padding:5px;
@@ -498,4 +505,45 @@ div.move div:nth-child(3n) {
 }
 .hidden {
     display:none;
+}
+dialog {
+    border-radius:5px;
+    background-color:#aaa;
+}
+::backdrop {
+  background-color: lightblue;
+  opacity: 0.75;
+}
+
+.keyboard {
+    gap:1px;
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    border: 2px solid #333;
+    background: #aaa;
+    border-radius:5px;
+    align-items: center;
+    justify-items: center;
+}
+.keyboard button {
+    font-weight: bold;
+    background:#555;
+    border:2px solid #ccc;
+    padding:18px;
+}
+.vowels {
+    background:#98AFC7;
+    padding:10px;
+    font-size:1.4vh;
+    border-bottom-left-radius:5px;
+}
+.consonants {
+    background:#C9C0BB;
+    padding:10px;
+    font-size:1.4vh;
+    border-bottom-right-radius:5px;
+}
+.two-col {
+    display:grid;
+    grid-template-columns: 1fr 1fr
 }

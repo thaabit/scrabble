@@ -1,60 +1,65 @@
 <template>
-<div id="top">
-    <template v-if="isAuthenticated">
-    <a @click="showGamesDialog">Games  <span v-if="turnCount">({{turnCount}})</span> | </a>
-    <RouterLink to="/games">Archive | </RouterLink>
-    <RouterLink to="/friends">Friends | </RouterLink>
-    <a @click="authStore.logout">Logout</a>
-    </template>
-
-    <template v-else>
-    <RouterLink to="/signup">Signup | </RouterLink>
-    <RouterLink to="/login">Login</RouterLink>
-    </template>
-</div>
 <div class="two-columns">
     <div> <!-- left col -->
         <div v-if="curGame?.finished" class="error">GAME OVER MAN</div>
 
         <div v-if="curGame" class="cur-game">
-            <div :class="['you', myTurn ? 'current' : '']" >
-                <div class="title">You ({{authUsername}})</div>
-                <div class="score">{{curGame.scores[authUsername]}}
-                <span v-if="playScore">+{{ playScore }}</span></div>
-            </div>
-            <div :class="['play']">
-                <div v-if="lastMove">
-                    <div class="box">{{ lastMove.username }} - {{ lastMove.main_word || lastMove.exchange || lastMove.type.toUpperCase() }} {{lastMove.score > 0 ? '+' : ''}}{{lastMove.score}}
-                    <a @click="showMovesDialog" style="padding-left:10px; color:#aaa;">&#x25BC;</a>
-                    </div>
-                </div>
-
-                <div v-if="playScore" class="word-scores">
-                <template
-                v-for="play in playedWords"
-                >
-                <div :class="{ 'invalid-word': invalidWords.includes(play[0]) }">{{play[0]}}</div><div>{{play[1]}}</div>
-                </template>
-                </div>
-            </div>
-            <div :class="['other', (!myTurn) ? 'current' : '']" >
-                <div class="title">{{curGame.opponent}}</div>
-                <div class="score">{{curGame.scores[curGame.opponent]}}</div>
-            </div>
+            <div :class="['you', myTurn ? 'current' : '']">{{authUsername}}</div>
+            <div class="score">{{curGame.scores[authUsername]}}</div>
+            <div :class="['other', (!myTurn) ? 'current' : '']" >{{curGame.opponent}}</div>
+            <div class="score">{{curGame.scores[curGame.opponent]}}</div>
         </div>
 
         <div class="unseen" v-if="curGame">
-            <div class="box">
-                <div class="title">Unseen Tiles</div>
+            <div class="box-top">
+                <div>
+                    <span class="title">{{ unseen.bag }} tiles in bag</span>
+                    <span v-if="lastMove" class="play hide-non-mobile">
+                        {{ lastMove.username }} - {{ lastMove.main_word || lastMove.exchange || lastMove.type.toUpperCase() }} {{lastMove.score > 0 ? '+' : ''}}{{lastMove.score}}
+                        <button class="all-moves" @click="showMovesDialog">All Moves</button>
+                    </span>
+                </div>
+                <div>
                 <span v-for="(count, letter) in unseen.tiles">
                 {{ letter.repeat(count) }}
                 &nbsp;
                 </span>
-                <hr>
-                <div>{{ unseen.vowels + unseen.consonants }} tiles ({{ unseen.bag }} in bag) || {{ unseen.vowels }} vowels | {{ unseen.consonants }} consonants</div>
+                </div>
+            </div>
+            <div class="two-col">
+                <span class="vowels">{{ unseen.vowels }} vowels</span>
+                <span class="consonants">{{ unseen.consonants }} consonants</span>
             </div>
             </div>
         <div>
+        </div>
+
+
+        <!-- moves -->
+        <div v-if="curGame.moves" class="moves hide-mobile box">
+        <div v-for="(move) in curGame.moves" :class="['move', move.username===authUsername ? 'you' : '']">
+            <div>{{ move.username }}</div>
+            <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
+            <div>{{ move.tally }} {{move.score > 0 ? '+' : ''}} {{ move.score }}</div>
+            <div></div>
+            <div>{{move.rack}}</div>
+            <div>{{ move.tally + move.score }}</div>
+        </div>
+        </div>
+
+        <div class="keyboard hide-non-mobile">
+            <button
+                v-for="(hasLetter, letter) in keyboardLetters"
+                @click="handleKeyboard(letter)"
+                @touchdown="handleKeyboard(letter)"
+                :class="[!hasLetter ? 'disabled' : '']"
+            >
+            {{ letter }}
+            </button>
+            <button
+                @click="handleBackspace"
+                @touchdown="handleBackspace"
+            >&larr;</button>
         </div>
 
     </div> <!-- end lef col -->
@@ -76,49 +81,6 @@
         </div>
         </div>
         <div v-else>No moves yet</div>
-    </Dialog>
-    <Dialog ref="gamesDialog">
-
-        <!-- active games -->
-        <div class="title">Active Games
-            <button @click="showNewGameDialog">New Game</button>
-        </div>
-        <div class="other-games">
-            <div v-for="(game) in active_games"
-                @click="changeGame(game.id)"
-                class="game clickable"
-            >
-            <div :class="(game.my_turn) ? 'current' : ''">
-                <div class="user">You {{ game.scores[authUsername] }}</div>
-            </div>
-            <div :class="(!game.my_turn) ? 'current' : ''">
-                <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
-            </div>
-            <div>
-            <button @click="changeGame(game.id)">Go</button>
-            </div>
-        </div>
-        </div>
-
-        <!--unacknowledged finished games-->
-        <div class="title" v-if="finished_games.length > 0">Finished Games</div>
-        <div class="other-games">
-        <div v-for="(game) in finished_games"
-            @click="changeGame(game.id)"
-            class="game clickable"
-        >
-            <div>
-                <div class="user">You {{ game.scores[authUsername] }}</div>
-            </div>
-            <div>
-                <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
-            </div>
-            <div>
-            <button @click.prevent="acknowledge_game(game.id)">Dismiss</button>
-            </div>
-        </div>
-        </div>
-
     </Dialog>
     <Dialog ref="passDialog">
         <div>You sure about that?</div>
@@ -178,9 +140,8 @@
 
         <!-- Rack -->
         <div class="rack-bumper" :style="{gridColumn: 1, gridRow: rackRow, gridColumnEnd: 'span 4'}">
-            <img @click="showKeyboard" src="/keyboard.svg" class="button-image hide-non-mobile"/>
-            <img @click="shuffleTray"  src="/shuffle.svg"  class="button-image"/>
-            <img @click="recallAllTiles"  src="/recall.svg"   class="button-image"/>
+            <img v-if="tilesInPlay.length === 0" @click="shuffleTray"  src="/shuffle.svg"  class="button-image"/>
+            <img v-if="tilesInPlay.length > 0" @click="recallAllTiles"  src="/recall.svg"   class="button-image"/>
         </div>
         <div
             v-for="(col) in [...Array(7).keys()]"
@@ -227,7 +188,7 @@
             draggable="true"
         >
         <div class="tile-letter">
-            <span class="letter">{{tile.sub || tile.letter}}</span>
+            <span class="letter">{{ tile.sub || tile.letter }}</span>
             <small class="points">{{ letterPoints[tile.letter] || '' }}</small>
         </div>
     </div>
@@ -240,23 +201,27 @@
         @drop="dropOnMarker"
     >&#9654;</div>
     </div> <!-- board end -->
-    <input ref="hiddenInput" class="hidden-input">
     </div> <!-- main col end -->
 
-    <div class="hide-mobile"> <!-- column 3 -->
+    <div> <!-- column 3 -->
+    <div v-if="playScore" class="word-scores">
+        <template v-for="play in playedWords">
+        <div :class="{ 'invalid-word': invalidWords.includes(play[0]) }">{{play[0]}}</div><div>{{play[1]}}</div>
+        </template>
+        <div v-if="isBingo">!!BINGO!!</div><div v-if="isBingo">+50</div>
+        <div></div><div><hr>{{ playScore }}</div>
+    </div>
 
     </div> <!-- column 3 -->
     </div> <!-- three column grid -->
 </template>
 <script setup>
     import { http } from '@/helpers/api.js';
-    import { ref, computed, onMounted, onUnmounted, useTemplateRef, watch } from 'vue'
+    import { ref, computed, onMounted, onUnmounted, useTemplateRef, watch, inject } from 'vue'
     import { router } from '@/helpers/router.js'
     import { useRoute } from 'vue-router';
     import { useAuthStore } from '@/stores/auth.store.js'
     import Dialog from '@/components/Dialog.vue'
-
-    import { storeToRefs } from 'pinia'
 
     const route = useRoute()
     const currentRouteName = computed(() => router.currentRoute.value.name);
@@ -265,8 +230,6 @@
     const board = ref([])
     const existingTiles = ref([])
     const scores = ref([])
-    const active_games = ref([])
-    const finished_games = ref([])
     const marker = ref(null)
     const textRight = ref(true)
 
@@ -288,13 +251,9 @@
     const exhangeDialog = useTemplateRef('exhangeDialog')
     const movesDialog = useTemplateRef('movesDialog')
     const passDialog = useTemplateRef('passDialog')
-    const gamesDialog = useTemplateRef('gamesDialog')
-
-    const hiddenInput = useTemplateRef('hiddenInput')
 
     const closeBlankLetterReplace = () => blanksDialog.value?.close()
     const closePassDialog  = () => passDialog.value.close()
-    const closeGamesDialog = () => gamesDialog.value.close()
 
     const exchangeTile = ref(null)
 
@@ -303,17 +262,19 @@
     const whoseTurn = ref(null)
     const gameId = ref(route?.params?.id)
     const unseen = ref(null)
+    const keyboardLetters = ref([])
     const bagCount = 0
     const curGame = ref(false)
     const lastMove = ref(null)
-    const turnCount = ref(0)
+    const isBingo = ref(false)
+    const turnCount = inject('turnCount')
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
     let otherKeydown = false
     let validPlay = false;
     let myTurn = false
     let canExchange = false
 
-    const authStore = useAuthStore();
-    const { isAuthenticated, loggedInUser } = storeToRefs(authStore)
 
     const newGameDialog = useTemplateRef('newGameDialog')
     const showNewGameDialog = () => newGameDialog.value.show()
@@ -326,7 +287,6 @@
 
     let interval
     onMounted(() => {
-        refreshGameList()
         initializeGame()
 
         interval = setInterval(checkRefreshGame, 1000*60)
@@ -341,7 +301,7 @@
             const msg = (error.data && error.data.detail) || error.statusText;
             throw new Error(msg);
         })
-        if (!route?.params.id) return showGamesDialog();
+        if (!route?.params.id) router.push(`/games`)
     })
 
 
@@ -378,16 +338,8 @@
     }
 
     function lastPlayedTile() {
-        let sorted = tilesInPlay().sort(compareTiles);
+        let sorted = tilesInPlay.value.sort(compareTiles);
         return sorted[sorted.length - 1]
-    }
-
-    // mobile only
-    function showKeyboard() {
-        hiddenInput.value.style.visibility = 'visible'
-        hiddenInput.value.focus()
-        hiddenInput.value.select()
-        window.scrollTo(0, document.body.scrollHeight);
     }
 
     function recallTile(tile) {
@@ -412,9 +364,17 @@
         otherKeydown = false
     }
 
+    function handleKeyboard(letter) {
+        placeTileOnBoard(letter);
+    }
+
+    function handleBackspace() {
+        bumpMarker(textRight.value ? 'left' : 'up', true)
+        setKeyboard()
+    }
+
     function handleKeyPress(e) {
         const key = e.key.toUpperCase()
-        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
         if (otherKeydown || !curGame.value) return
         let dirs = {
             ARROWLEFT:  'left',
@@ -423,16 +383,16 @@
             ARROWDOWN:  'down',
         }
         if (key == 'BACKSPACE') {
-            bumpMarker(textRight.value ? 'left' : 'up', true)
+            handleBackspace();
         }
-        else if (key == ' ') {
+        else if (key == 'TAB') {
             e.preventDefault()
             shuffleTray()
         }
         else if (key == 'ESCAPE') {
             recallAllTiles()
         }
-        else if (key == 'TAB') {
+        else if (key == ' ') {
             e.preventDefault()
             changeDirection()
         }
@@ -448,35 +408,40 @@
             bumpMarker(dirs[key])
         }
         else if (alphabet.includes(key)) {
-            let found = tilesOnRack().some(tile => {
-                if (tile.letter === key) {
+            placeTileOnBoard(key);
+        }
+        else {
+            otherKeydown = true
+        }
+    }
+
+    function placeTileOnBoard(letter) {
+        let found = tilesOnRack().some(tile => {
+            if (tile.letter === letter) {
+                let row = Number(marker.value.style.gridRow)
+                let col = Number(marker.value.style.gridColumn)
+                placeTile(tile, row, col)
+                bumpMarker(textRight.value ? 'right' : 'down')
+                return true
+            }
+            return false
+        });
+
+        if (!found) {
+            tilesOnRack().some(tile => {
+                if (tile.letter === '?') {
                     let row = Number(marker.value.style.gridRow)
                     let col = Number(marker.value.style.gridColumn)
+                    blankTile.value = tile
+                    pickBlankReplacement(letter)
                     placeTile(tile, row, col)
                     bumpMarker(textRight.value ? 'right' : 'down')
                     return true
                 }
                 return false
             })
-
-            if (!found) {
-                tilesOnRack().some(tile => {
-                    if (tile.letter === '?') {
-                        let row = Number(marker.value.style.gridRow)
-                        let col = Number(marker.value.style.gridColumn)
-                        blankTile.value = tile
-                        pickBlankReplacement(key)
-                        placeTile(tile, row, col)
-                        bumpMarker(textRight.value ? 'right' : 'down')
-                        return true
-                    }
-                    return false
-                })
-            }
         }
-        else {
-            otherKeydown = true
-        }
+        setKeyboard()
     }
 
     function nextSquare(row, col, dir) {
@@ -516,16 +481,15 @@
     function existingTileAt(row, col) {
         return existingTiles.value.find(tile => { return (tile.row === Number(row) && tile.col === Number(col)) })
     }
+
     function tileAt(row, col) {
         return playerTiles.value.find(tile => { return (tile.row === Number(row) && tile.col === Number(col)) })
     }
+
     function anyTileAt(row, col) {
         return existingTileAt(row, col) || tileAt(row, col)
     }
 
-    function tilesInPlay() {
-        return playerTiles.value.filter(tile => { return tile.row !== rackRow })
-    }
 
     function tilesOnRack() {
         return playerTiles.value.filter(tile => tile.row === rackRow)
@@ -548,12 +512,6 @@
         marker.value.style.gridColumn = col
     }
 
-    function changeGame(id) {
-        router.push(`/game/${id}`)
-        closeGamesDialog()
-        initializeGame()
-    }
-
     function changeDirection() {
         textRight.value = !textRight.value
         marker.value.innerHTML = textRight.value ? '&#9654;' : '&#x25BC'
@@ -567,29 +525,11 @@
 
     function checkRefreshGame() {
         if (!myTurn) refreshGame()
-        refreshGameList()
     }
 
-    function refreshGameList() {
-        http.get('/game?type=active').then(response => {
-            active_games.value = response.data
-            turnCount.value = response.data.filter(game => {
-                return game.whose_turn === authUsername
-            }).length
-            document.title = turnCount.value > 0 ? `(${turnCount.value}) - Games` : 'Games'
-        })
-        .catch(error => {
-            const msg = (error.data && error.data.detail) || error.statusText;
-            throw new Error(msg);
-        });
-        http.get('/game?type=unacknowledged').then(response => {
-            finished_games.value = response.data
-        })
-        .catch(error => {
-            const msg = (error.data && error.data.detail) || error.statusText;
-            throw new Error(msg);
-        });
-    }
+    const tilesInPlay = computed(() => {
+        return playerTiles.value.filter(tile => { return tile.row !== rackRow })
+    })
 
     const toExchangeTiles = computed(() => {
         return exchangeTiles.value.filter(tile => tile.row === 2)
@@ -656,6 +596,8 @@
             unseen.value = response.data.unseen
             canExchange = myTurn && Number(unseen.value.bag) >= 7
             showMarker()
+
+            setKeyboard()
         })
         .catch(error => {
             warn(error)
@@ -666,7 +608,16 @@
     }
 
     const showMovesDialog = () => movesDialog.value.show()
-    const showGamesDialog = () => gamesDialog.value.show()
+
+    function setKeyboard() {
+        keyboardLetters.value = alphabet.reduce((map, letter) => {
+            const hasLetter = tilesOnRack().some(tile => {
+                return (tile.letter === '?' || tile.letter === letter)
+            });
+            map[letter] = hasLetter;
+            return map;
+        }, {});
+    }
 
     function pass(force) {
         if (!myTurn) return
@@ -689,7 +640,7 @@
 
     function play() {
         if (myTurn && validPlay) {
-            let data = tilesInPlay().map(tile => {
+            let data = tilesInPlay.value.map(tile => {
                 let letter = tile.sub ? tile.letter + tile.sub : tile.letter
                 return [letter, tile.row - 1, tile.col - 1].join(':')
             }).join('::')
@@ -704,16 +655,7 @@
         }
         if (data) body.data = data
         http.post('/move', body).then(response => {
-            refreshGameList()
             initializeGame()
-            showGamesDialog()
-        })
-    }
-
-    function acknowledge_game(game_id) {
-        http.patch('/game/acknowledge/' + game_id).then(response => {
-            refreshGameList()
-            showGamesDialog()
         })
     }
 
@@ -729,13 +671,13 @@
 
     function playedRows() {
         let rows = new Set();
-        tilesInPlay().forEach(letter => rows.add(letter.row));
+        tilesInPlay.value.forEach(letter => rows.add(letter.row));
         return Array.from(rows);
     }
 
     function playedCols() {
         let cols = new Set();
-        tilesInPlay().forEach(letter => cols.add(letter.col));
+        tilesInPlay.value.forEach(letter => cols.add(letter.col));
         return Array.from(cols);
     }
 
@@ -756,7 +698,7 @@
     }
 
     function isValidPlacement() {
-        let played = tilesInPlay()
+        let played = tilesInPlay.value
         if (played.length === 0) return false
 
         // middle square
@@ -911,7 +853,13 @@
 
         }
         allWordsValid()
-        if (tilesInPlay().length === 7) score += 50
+        if (tilesInPlay.value.length === 7) {
+            isBingo.value = true
+            score += 50
+        }
+        else {
+            isBingo.value = false
+        }
         playScore.value = score
     }
 

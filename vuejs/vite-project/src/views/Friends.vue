@@ -1,3 +1,8 @@
+<template>
+  <h1>Friends</h1>
+  <div v-for="(user) in users">{{user}} <button @click="newGame(user)">New Game</button></div>
+</template>
+
 <script setup>
 import { http } from '@/helpers/api.js';
 import { ref, onMounted } from 'vue'
@@ -25,8 +30,4 @@ function newGame(other_user) {
 }
 </script>
 
-<template>
-  <h1>Friends</h1>
-  <div v-for="(user) in users">{{user}} <button @click="newGame(user)">New Game</button></div>
-</template>
 
