@@ -1,30 +1,33 @@
 <template>
-    <div>Archived Games</div>
-    <table>
+    <br>
+    <table class="archive">
         <tr>
+            <th>Me</th>
+            <th>Them</th>
             <th>Opponent</th>
             <th>Started</th>
             <th>Finished</th>
-            <th>Score</th>
         </tr>
         <tr v-for="(game) in games"
             @click="changeGame(game.id)"
             class="clickable"
         >
-            <td>{{game.opponent}}</td>
-            <td>{{game.started}}</td>
-            <td>{{game.finished_date}}</td>
-            <td>{{game.scores[auth_username]}} - {{game.scores[game.opponent]}}</td>
+            <td :class="[game.winner===curUser.username  ? 'winner' : '']">{{game.scores[curUser.username]}}</td>
+            <td :class="[game.winner===game.opponent ? 'winner' : '']">{{game.scores[game.opponent]}}</td>
+            <td>{{ game.opponent }}</td>
+            <td>{{ useDateFormat(game.started, 'MMM Do, YYYY')}}</td>
+            <td>{{ useDateFormat(game.finished_date, 'MMM Do, YYYY')}}</td>
         </tr>
     </table>
 </template>
 <script setup>
+import { useDateFormat } from '@vueuse/core';
 import { http } from '@/helpers/api.js';
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, inject } from 'vue'
 import { useAuthStore } from '@/stores/auth.store.js'
 import { router } from '@/helpers/router.js'
 const games = ref([])
-const auth_username = useAuthStore().parseJWT().sub
+const curUser = inject('curUser')
 
 function changeGame(id) {
     router.push(`/game/${id}`)

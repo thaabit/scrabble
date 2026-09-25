@@ -25,6 +25,7 @@ services:
       - scrawl
     volumes:
       - ./api:/api
+      - ./vuejs/vite-project/public/:/files
   db:
     image: mariadb:latest
     container_name: scrabble-db

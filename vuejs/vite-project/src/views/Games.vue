@@ -1,41 +1,39 @@
 <template>
 <div class="title">Active Games</div>
-<div class="other-games">
-    <div v-for="(game) in active_games"
-        @click="changeGame(game.id)"
-        class="game clickable"
-    >
-        <div :class="['user', game.my_turn ? 'current' : '']">
-            {{ authUsername }} {{ game.scores[authUsername] }}
-        </div>
-        <div :class="['user', !game.my_turn ? 'current' : '']">
-            {{ game.opponent }} {{ game.scores[game.opponent] }}
-        </div>
-        <div class="center"><button @click="changeGame(game.id)">Go</button></div>
+<div v-for="(game) in active_games"
+    @click="changeGame(game.id)"
+    class="game clickable"
+>
+    <div :class="[game.my_turn ? 'current' : '']">
+        {{ curUsername }} {{ game.scores[curUsername] }}
     </div>
+    <div :class="[!game.my_turn ? 'current' : '']">
+        {{ game.opponent }} {{ game.scores[game.opponent] }}
+    </div>
+    <div class="center"><button @click="changeGame(game.id)">Go</button></div>
 </div>
 
 <!--unacknowledged finished games-->
 <div class="title" v-if="finished_games.length > 0">Finished Games</div>
 <div v-for="(game) in finished_games"
      @click="changeGame(game.id)"
-     class="other-games game clickable"
+     class="game clickable"
 >
-    <div class="user">You {{ game.scores[authUsername] }}</div>
-    <div class="user">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
-    <div><button @click.prevent="acknowledge_game(game.id)">Dismiss</button></div>
+    <div :class="[game.winner===curUsername ? 'winner' : '']">{{curUsername}} {{ game.scores[curUsername] }}</div>
+    <div :class="[game.winner===game.opponent ? 'winner' : '']">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
+    <div><button @click.stop="acknowledge_game(game.id)">Dismiss</button></div>
 </div>
 </template>
 
 <script setup>
 import { http } from '@/helpers/api.js';
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, inject } from 'vue'
 import { useAuthStore } from '@/stores/auth.store.js'
 import { router } from '@/helpers/router.js'
+const curUsername = useAuthStore().authedUser
 
 const active_games = ref([])
 const finished_games = ref([])
-const authUsername = useAuthStore().parseJWT().sub
 
 function acknowledge_game(game_id) {
     http.patch('/game/acknowledge/' + game_id).then(response => {

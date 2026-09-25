@@ -3,13 +3,17 @@ import mariadb
 import sqlalchemy
 import sys
 import bcrypt
+import shutil
+import io
 
-from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter
+from fastapi import Depends, FastAPI, HTTPException, Query, APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import create_engine, Session, select, or_, and_, SQLModel, text
-from typing import Annotated
+from typing import Annotated, AsyncGenerator
+from pathlib import Path
+from PIL import Image, ImageOps, ImageDraw
 
 from models.Game import Game
 from models.GameUser import GameUser
@@ -17,8 +21,11 @@ from models.User import User, UserCreate, UserUpdate
 from models.Move import Move
 from auth_handler import sign_jwt, oauth2_scheme, get_authed_username, create_access_token
 
+
 app = FastAPI()
 router = APIRouter()
+UPLOAD_DIR = Path("/files")
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 origins = [
     "http://localhost:5173",
@@ -63,7 +70,7 @@ async def login_for_access_token(json: LoginValidation):
             if user is None or not bcrypt.checkpw(bytes(json.password,'utf-8'), bytes(user.pwhash, 'utf-8')):
                 raise HTTPException(status_code=400, detail="Incorrect username or password")
         except Exception as e:
-            print(e.args)
+            warn(e)
             raise HTTPException(status_code=400, detail="Incorrect username or password")
         access_token = create_access_token(data={"sub": user.username})
         return {"access_token": access_token, "token_type": "bearer"}
@@ -134,22 +141,20 @@ def create_game(args: GameValidation, username: str = Depends(get_authed_usernam
 def list_games(type: str = 'active', auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         try:
-            auth_user = user_by_username(auth_username)
-            session.add(auth_user)
             out = []
             sql = f'SELECT g.id, gu.tray, gu.ack_end FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un'
             if type == 'active':
                 sql += " AND g.finished='0000-00-00 00:00:00'"
             elif type == 'inactive':
-                sql += " AND g.finished!='0000-00-00 00:00:00'"
+                sql += " AND g.finished!='0000-00-00 00:00:00' ORDER BY g.finished DESC"
             elif type == 'unacknowledged':
                 sql += " AND g.finished!='0000-00-00 00:00:00' AND gu.ack_end = 0 ORDER BY g.finished"
-            games = session.execute(text(sql), params={"un": auth_username}).fetchall()
             for row in session.execute(text(sql), params={"un": auth_username}).fetchall():
                 game = session.get(Game, row[0])
                 out.append({
                     "id":            game.id,
                     "scores":        game.scores(),
+                    "winner":        game.winner(),
                     "whose_turn":    game.whose_turn(),
                     "my_turn":       game.whose_turn() == auth_username,
                     "started":       game.created.date(),
@@ -161,6 +166,21 @@ def list_games(type: str = 'active', auth_username: str = Depends(get_authed_use
             return out
 
         except Exception as e:
+            warn(e)
+            raise HTTPException(status_code=400, detail=e.args)
+
+@router.get("/turn")
+def turn_count(type: str = 'active', auth_username: str = Depends(get_authed_username)):
+    with Session(engine) as session:
+        try:
+            sql = f"SELECT g.id, gu.tray, gu.ack_end FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un AND g.finished='0000-00-00 00:00:00'"
+            games = session.execute(text(sql), params={"un": auth_username}).fetchall()
+            turns = len([game for game in games if session.get(Game, game[0]).whose_turn() == auth_username])
+            return {
+                "turns": turns
+            }
+        except Exception as e:
+            warn(e)
             raise HTTPException(status_code=400, detail=e.args)
 
 @router.get("/user/{id}")
@@ -170,6 +190,83 @@ def read_user(id: str, auth_username: str = Depends(get_authed_username)):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         return user
+
+@router.get("/profile")
+def get_profile(auth_username: str = Depends(get_authed_username)):
+    with Session(engine) as session:
+        result = session.connection().execute(text("SELECT username, name, avatar FROM user WHERE username = :username"), { "username": auth_username })
+        row_dict = result.mappings().first()
+        warn(row_dict)
+        return row_dict
+
+def hashpw(password):
+    return bcrypt.hashpw(bytes(password, 'utf-8'), bcrypt.gensalt(rounds=12))
+
+@router.patch("/profile")
+def patch_profile(user: UserUpdate, auth_username: str = Depends(get_authed_username)):
+    pwhash = hashpw(user.password) if user.password else get_user(auth_username).pwhash
+
+    with Session(engine) as session:
+        binds = {
+            "username": user.username,
+            "name": user.name,
+            "auth_username": auth_username,
+            "pwhash": pwhash,
+        }
+
+        session.connection().execute(text("UPDATE user SET name=:name, username=:username, pwhash=:pwhash WHERE username=:auth_username"), binds)
+        session.connection().commit()
+        return { "success": 1 }
+
+@router.delete("/profile/avatar")
+def delete_avatar(auth_username: str = Depends(get_authed_username)):
+    user = get_user(auth_username)
+    user.avatar = ''
+    with Session(engine) as session:
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    return {"success": 1}
+
+@router.patch("/profile/avatar")
+def add_avatar(file: UploadFile = File(...), auth_username: str = Depends(get_authed_username)):
+    avatar_file_name = f"{auth_username}.png"
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file selected")
+    try:
+        img = Image.open(file.file)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img = ImageOps.fit(img, (200, 200), Image.LANCZOS)
+        bigsize = (img.size[0] * 3, img.size[1] * 3)
+        mask = Image.new('L', bigsize, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0) + bigsize, fill=255)
+        mask = mask.resize(img.size, Image.Resampling.LANCZOS)
+        img.putalpha(mask)
+
+        output = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
+        output.putalpha(mask)
+        output.save(f"{UPLOAD_DIR}/{avatar_file_name}", 'PNG')
+    except Exception as e:
+        warn(e)
+        raise HTTPException(status_code=500, detail='Something went wrong')
+    finally:
+        file.file.close()
+        img.close()
+
+    user = get_user(auth_username)
+    user.avatar = avatar_file_name
+    with Session(engine) as session:
+        try:
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+        except sqlalchemy.exc.IntegrityError as e:
+            warn(e)
+            raise HTTPException(status_code=422, detail="Username taken")
+
+    return {"success": 1}
 
 @router.post("/user")
 def create_user(user: UserCreate):
@@ -186,7 +283,7 @@ def create_user(user: UserCreate):
             return_hash = {"username": db_user.username, "access_token": access_token, "token_type": "bearer"}
             return return_hash
         except sqlalchemy.exc.IntegrityError as e:
-            print(e)
+            warn(e)
             raise HTTPException(status_code=422, detail="Username taken")
 
 @router.get("/user")
@@ -194,6 +291,7 @@ def list_users(auth_username: str = Depends(get_authed_username)):
     with Session(engine) as session:
         users = session.exec(select(User)).all()
         return [user.username for user in users if user.username != auth_username]
+
 
 @router.patch("/game/acknowledge/{game_id}")
 def ack_move(game_id: str, auth_username: str = Depends(get_authed_username)):
@@ -218,14 +316,14 @@ def add_move(move: Move, auth_username: str = Depends(get_authed_username)):
         try:
             game.valid_move(move, auth_username)
         except Exception as e:
-            print(e)
+            warn(e)
             raise HTTPException(status_code=422, detail=e.args)
         try:
             session.add(move)
             session.commit()
             session.refresh(move)
         except Exception as e:
-            print(e)
+            warn(e)
             raise HTTPException(status_code=422, detail=e.args)
         return move
 
@@ -264,5 +362,8 @@ def get_user(username):
         statement = select(User).where(User.username == username)
         results = session.exec(statement)
         return results.first()
+
+def warn(msg):
+    print(f"Error: {msg}", file=sys.stderr)
 
 app.include_router(router)

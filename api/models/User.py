@@ -14,11 +14,14 @@ class User(UserBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     pwhash: str = Field()
     trays: List["GameUser"] = Relationship()
+    avatar: str | None = Field(default='')
+    name: str | None = Field(default='')
 
 class UserCreate(UserBase):
     password: str
 
 class UserUpdate(SQLModelBase):
-    username: str | None = None
+    username: str
+    name: str
     password: str | None = None
 

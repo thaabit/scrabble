@@ -165,6 +165,13 @@ class Game(SQLModelBase, table=True):
             scores[tray.username] = self.score(tray.username)
         return scores
 
+    def winner(self):
+        if self.game_over():
+            scores = self.scores()
+            winner = max(scores, key=scores.get)
+            return winner
+        return ''
+
     def bag_count(self):
         return len(self.bag)
 

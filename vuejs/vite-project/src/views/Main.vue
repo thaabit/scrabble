@@ -233,7 +233,7 @@
     const marker = ref(null)
     const textRight = ref(true)
 
-    const authUsername = useAuthStore().parseJWT().sub
+    const authUsername = useAuthStore().authedUser
     const rackRow = 16
     const rackStart = 5
     const middle = 8
@@ -274,7 +274,6 @@
     let validPlay = false;
     let myTurn = false
     let canExchange = false
-
 
     const newGameDialog = useTemplateRef('newGameDialog')
     const showNewGameDialog = () => newGameDialog.value.show()

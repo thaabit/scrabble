@@ -7,7 +7,14 @@ export const useAuthStore = defineStore('auth', {
         token: localStorage.getItem('jwt'),
     }),
     getters: {
-        isAuthenticated: (state) => !!state?.token
+        isAuthenticated: (state) => !!state?.token,
+        authedUser: (state) => {
+            if (state.token) {
+                let payload = (state.token.split('.')[1])
+                return JSON.parse(atob(payload)).sub
+            }
+            return ''
+        }
     },
     actions: {
         store(token) {
@@ -22,15 +29,5 @@ export const useAuthStore = defineStore('auth', {
             localStorage.removeItem('jwt');
             router.push('/login');
         },
-        parseJWT() {
-            if (this.token) {
-                let payload = (this.token.split('.')[1])
-                return JSON.parse(atob(payload))
-            }
-            return {}
-        },
-        authedUser() {
-            this.parseJWT().sub
-        }
     }
 });

@@ -12,9 +12,18 @@
     vertical-align:bottom;
     text-align:center;
     top:0;
+    display:grid;
+    font-size:larger;
+    grid-template-columns: 3fr 1fr;
 }
 #top a {
     color: #ccc;
+}
+#top:first-child {
+    justify-self: start;
+}
+#top:last-child {
+    justify-self: end;
 }
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -99,7 +108,7 @@ button:focus-visible {
         width:100%;
     }
     #app {
-        margin: 2rem auto;
+        margin: 70px auto;
     }
     .board-cell, .tile, .marker {
         width:6.3vmin;
@@ -164,8 +173,8 @@ button:focus-visible {
         gap:1px;
     }
     #app {
-        margin: 0 auto;
-        padding: 2rem;
+        margin: 70px auto;
+        padding:0 20px;
     }
     .tile, .marker {
         width:4.5vh;
@@ -433,11 +442,40 @@ a:hover {
 .word-scores div {
     padding:5px;
 }
+table.archive {
+    border-collapse:collapse;
+    margin:0;
+}
+table.archive td {
+    border:1px solid white;
+    padding:10px 20px;
+    font-size:larger;
+}
+table.archive th {
+    font-weight:bold;
+    background:#888;
+    padding:10px 20px;
+    border:1px solid #fff;
+    font-size:larger;
+}
+table.archive tr:hover,
+table.archive tr:active,
+table.archive tr:focus
+{
+    background-color:#000 !important;
+    border:1px solid red !important;
+}
 
-.other-games .center {
+
+table.archive td.winner {
+    font-weight: bold;
+    color:yellow;
+}
+
+.game .center {
     place-self: center;
 }
-.other-games .game, .all-games .game {
+.game {
     display:grid;
     grid-template-columns: 1fr 1fr .5fr;
     background:#555;
@@ -445,22 +483,25 @@ a:hover {
     margin-bottom:10px;
     border:1px solid transparent;
 }
-.other-games .user, .all-games .user{
+.game div {
     font-weight: bold;
     padding:5px;
 }
-.other-games .over {
+.game .over {
     font-weight: bold;
 }
-.other-games .game .current, .all-games .game .current {
+.game .current {
     background: #D12A24;
     color: orange;
     border-radius:5px;
 }
-.other-games .score, .all-games .score {
+.game .score {
     padding:5px;
 }
-.other-games .game:hover, .all-games .game:hover {
+.game .winner {
+    color:yellow;
+}
+.game:hover {
     border:1px solid yellow;
 }
 
@@ -545,5 +586,45 @@ dialog {
 }
 .two-col {
     display:grid;
-    grid-template-columns: 1fr 1fr
+    grid-template-columns: 1fr 1fr;
+}
+.friends {
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    padding:10px;
+    border-bottom:1px solid #ddd;
+}
+.user {
+    font-weight: bold;
+    font-size:larger;
+}
+.ctr {
+    margin:auto;
+    width:auto;
+    max-width:400px;
+}
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #333;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+  padding:10px;
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+.btn:hover {
+    background:#bbb;
+}
+label {
+    color:#555;
+    font-size:larger;
 }

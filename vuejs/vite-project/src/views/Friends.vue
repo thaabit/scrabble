@@ -1,6 +1,9 @@
 <template>
-  <h1>Friends</h1>
-  <div v-for="(user) in users">{{user}} <button @click="newGame(user)">New Game</button></div>
+<h1>Friends</h1>
+<div class="friends" v-for="(user) in users">
+    <div class="user">{{user}}</div>
+    <div><button @click="newGame(user)">New Game</button></div>
+</div>
 </template>
 
 <script setup>

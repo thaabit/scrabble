@@ -8,6 +8,7 @@ import MainView     from '@/views/Main.vue'
 import ArchiveView  from '@/views/Archive.vue'
 import FriendsView  from '@/views/Friends.vue'
 import GamesView    from '@/views/Games.vue'
+import ProfileView  from '@/views/Profile.vue'
 
 import { useFavicon } from '@vueuse/core'
 const favicon = useFavicon()
@@ -17,12 +18,13 @@ export const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     linkActiveClass: 'active',
     routes: [
-        { path: '/',        component: MainView },
-        { path: '/login',   component: LoginView },
-        { path: '/signup',  component: SignupView },
+        { path: '/',        component: MainView    },
+        { path: '/login',   component: LoginView   },
+        { path: '/signup',  component: SignupView  },
         { path: '/archive', component: ArchiveView },
         { path: '/friends', component: FriendsView },
-        { path: '/games',   component: GamesView },
+        { path: '/games',   component: GamesView   },
+        { path: '/profile', component: ProfileView },
         { name: 'game', path: '/game/:id(\\d+)', component: MainView },
     ]
 });
