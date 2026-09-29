@@ -43,6 +43,10 @@ app.add_middleware(
 mdb_url = "mariadb+pymysql://{}:{}@{}/{}?charset=utf8mb4".format(os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST"), os.getenv("DB_NAME"))
 engine = create_engine(mdb_url)
 
+def get_session():
+    with Session(engine) as session:
+        yield session
+
 class LoginValidation(SQLModel):
     username: str
     password: str
@@ -170,18 +174,12 @@ def list_games(type: str = 'active', auth_username: str = Depends(get_authed_use
             raise HTTPException(status_code=400, detail=e.args)
 
 @router.get("/turn")
-def turn_count(type: str = 'active', auth_username: str = Depends(get_authed_username)):
-    with Session(engine) as session:
-        try:
-            sql = f"SELECT g.id, gu.tray, gu.ack_end FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un AND g.finished='0000-00-00 00:00:00'"
-            games = session.execute(text(sql), params={"un": auth_username}).fetchall()
-            turns = len([game for game in games if session.get(Game, game[0]).whose_turn() == auth_username])
-            return {
-                "turns": turns
-            }
-        except Exception as e:
-            warn(e)
-            raise HTTPException(status_code=400, detail=e.args)
+def turn_count(type: str = 'active', auth_username: str = Depends(get_authed_username), session: Session = Depends(get_session)):
+    auth_user = get_user(auth_username)
+    turns = auth_user.turn_count(session)
+    return {
+        "turns": turns
+    }
 
 @router.get("/user/{id}")
 def read_user(id: str, auth_username: str = Depends(get_authed_username)):
@@ -364,6 +362,6 @@ def get_user(username):
         return results.first()
 
 def warn(msg):
-    print(f"Error: {msg}", file=sys.stderr)
+    print(f"Warning: {msg}", file=sys.stderr)
 
 app.include_router(router)
