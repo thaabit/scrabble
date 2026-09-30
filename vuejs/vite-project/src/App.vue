@@ -2,7 +2,7 @@
 <div id="top">
     <template v-if="isAuthenticated">
     <span>
-    <RouterLink to="/games">Games <span v-if="turnCount">({{turnCount}})</span></RouterLink>
+    <RouterLink to="/games" @click.native.prevent="refreshTurnCount">Games <span v-if="turnCount">({{turnCount}})</span></RouterLink>
     | <RouterLink to="/archive">Archive</RouterLink>
     | <RouterLink to="/friends">New Game</RouterLink>
     </span>
@@ -42,6 +42,7 @@
     const curUser = ref({})
     const curUserAvatar = ref('')
 
+    provide('refreshTurnCount', refreshTurnCount)
     provide('turnCount', turnCount)
     provide('curUser', curUser)
     provide('curUserAvatar', curUser.value.avatar)

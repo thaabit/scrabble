@@ -268,6 +268,7 @@
     const lastMove = ref(null)
     const isBingo = ref(false)
     const turnCount = inject('turnCount')
+    const refreshTurnCount = inject('refreshTurnCount')
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
     let otherKeydown = false
@@ -655,6 +656,7 @@
         if (data) body.data = data
         http.post('/move', body).then(response => {
             initializeGame()
+            refreshTurnCount()
         })
     }
 
