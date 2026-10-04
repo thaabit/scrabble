@@ -431,16 +431,24 @@ a:hover {
 }
 .word-scores {
     display:grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 3fr 1fr;
     background:#fff;
     color:#555;
-    padding:5px;
     border-radius:5px;
     font-weight:bold;
-    width:30%;
+}
+
+.word-scores:last-child:nth-child(2) {
+    justify-self:end;
+}
+.word-scores .bingo {
+    color:green;
 }
 .word-scores div {
     padding:5px;
+}
+.word-scores .total {
+    background:#aaa;
 }
 table.archive {
     border-collapse:collapse;

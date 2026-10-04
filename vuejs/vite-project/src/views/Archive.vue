@@ -12,7 +12,7 @@
             @click="changeGame(game.id)"
             class="clickable"
         >
-            <td :class="[game.winner===curUser.username  ? 'winner' : '']">{{game.scores[curUser.username]}}</td>
+            <td :class="[game.winner===curUsername  ? 'winner' : '']">{{ game.scores[curUsername] }}</td>
             <td :class="[game.winner===game.opponent ? 'winner' : '']">{{game.scores[game.opponent]}}</td>
             <td>{{ game.opponent }}</td>
             <td>{{ useDateFormat(game.started, 'MMM Do, YYYY')}}</td>
@@ -27,7 +27,8 @@ import { ref, onMounted, inject } from 'vue'
 import { useAuthStore } from '@/stores/auth.store.js'
 import { router } from '@/helpers/router.js'
 const games = ref([])
-const curUser = inject('curUser')
+const profile = inject('profile')
+const curUsername = useAuthStore().authedUser
 
 function changeGame(id) {
     router.push(`/game/${id}`)

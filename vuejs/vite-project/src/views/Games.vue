@@ -1,6 +1,6 @@
 <template>
 <div class="title">Active Games</div>
-<div v-for="(game) in active_games"
+<div v-for="(game) in games.active.value"
     @click="changeGame(game.id)"
     class="game clickable"
 >
@@ -14,8 +14,8 @@
 </div>
 
 <!--unacknowledged finished games-->
-<div class="title" v-if="finished_games.length > 0">Finished Games</div>
-<div v-for="(game) in finished_games"
+<div class="title" v-if="games.finished.value.length && games.finished.value.length > 0">Finished Games</div>
+<div v-for="(game) in games.finished.value"
      @click="changeGame(game.id)"
      class="game clickable"
 >
@@ -30,14 +30,13 @@ import { http } from '@/helpers/api.js';
 import { ref, onMounted, inject } from 'vue'
 import { useAuthStore } from '@/stores/auth.store.js'
 import { router } from '@/helpers/router.js'
-const curUsername = useAuthStore().authedUser
 
-const active_games = ref([])
-const finished_games = ref([])
+const curUsername = useAuthStore().authedUser
+const games = inject('games')
 
 function acknowledge_game(game_id) {
     http.patch('/game/acknowledge/' + game_id).then(response => {
-        refreshGameList()
+        games.refresh()
     })
 }
 
@@ -45,25 +44,10 @@ function changeGame(id) {
     router.push(`/game/${id}`)
 }
 
-function refreshGameList() {
-    http.get('/game?type=active').then(response => {
-        active_games.value = response.data
-    })
-    .catch(error => {
-        const msg = (error.data && error.data.detail) || error.statusText;
-        throw new Error(msg);
-    });
-    http.get('/game?type=unacknowledged').then(response => {
-        finished_games.value = response.data
-    })
-    .catch(error => {
-        const msg = (error.data && error.data.detail) || error.statusText;
-        throw new Error(msg);
-    });
-}
-
+const turns = inject('turns')
 onMounted(() => {
-    refreshGameList();
+    games.refresh()
+    turns.refresh()
 })
 
 </script>

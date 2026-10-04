@@ -2,19 +2,16 @@
 <div id="top">
     <template v-if="isAuthenticated">
     <span>
-    <RouterLink to="/games" @click.native.prevent="refreshTurnCount">Games <span v-if="turnCount">({{turnCount}})</span></RouterLink>
+    <RouterLink to="/games" @click.native.prevent="refreshAll">Games <span v-if="turnCount">({{turnCount}})</span></RouterLink>
     | <RouterLink to="/archive">Archive</RouterLink>
     | <RouterLink to="/friends">New Game</RouterLink>
     </span>
     <span class="dropdown">
-        <img v-if="isAuthenticated" :src="curUserAvatar" alt="avatar" style="width:50px;">
+        <img v-if="isAuthenticated" :src="curAvatar" alt="avatar" style="width:50px;">
         <div class="dropdown-content">
             <span v-if="isAuthenticated">
                 <RouterLink to="/profile">Profile </RouterLink><br>
                 <a @click="authStore.logout">Logout</a><br>
-            </span>
-            <span v-else>
-
             </span>
         </div>
     </span>
@@ -33,43 +30,87 @@
     import { router } from '@/helpers/router.js'
     import { storeToRefs } from 'pinia'
     import { useAuthStore } from '@/stores/auth.store.js'
-    import { ref, provide, onMounted, onUnmounted } from 'vue'
+    import { ref, provide, inject, onMounted, onUnmounted } from 'vue'
     import { http } from '@/helpers/api.js';
 
     const authStore = useAuthStore();
     const { isAuthenticated } = storeToRefs(authStore)
-    const turnCount = ref(0)
-    const curUser = ref({})
-    const curUserAvatar = ref('')
 
-    provide('refreshTurnCount', refreshTurnCount)
-    provide('turnCount', turnCount)
-    provide('curUser', curUser)
-    provide('curUserAvatar', curUser.value.avatar)
+    const turnCount = ref(0)
+    provide('turns', {
+        count: turnCount,
+        refresh: refreshTurnCount,
+    })
+
+    const curUsername = ref('')
+    const curName = ref('')
+    const curAvatar = ref('')
+    provide('profile', {
+        avatar: curAvatar,
+        username: curUsername,
+        name: curName,
+    })
+
+    const activeGames = ref([])
+    const finishedGames = ref([])
+    provide('games', {
+        active: activeGames,
+        finished: finishedGames,
+        refresh: refreshGameList,
+    });
+
+    function refreshGameList() {
+        http.get('/game?type=active').then(response => {
+            activeGames.value = response.data
+        })
+        .catch(error => {
+            console.log(error)
+            const msg = (error.data && error.data.detail) || error.statusText
+            throw new Error(msg)
+        });
+        http.get('/game?type=unacknowledged').then(response => {
+            finishedGames.value = response.data
+        })
+        .catch(error => {
+            console.log(error)
+            const msg = (error.data && error.data.detail) || error.statusText
+            throw new Error(msg)
+        });
+    }
 
     function refreshProfile() {
         http.get('/profile').then(response => {
             if (response.data.avatar) response.data.avatar = '/' + response.data.avatar + "?t=" + Date.now()
             else response.data.avatar = '/public/default_avatar.png'
-            curUserAvatar.value = response.data.avatar
-            curUser.value = response.data
+            curAvatar.value = response.data.avatar
+            curUsername.value = response.data.username
+            curName.value = response.data.name
         })
         .catch(error => {
             const msg = (error.data && error.data.detail) || error.statusText;
             throw new Error(msg);
         })
     }
-    refreshProfile()
+
+    function refreshAll() {
+        refreshTurnCount()
+        refreshGameList()
+    }
     function refreshTurnCount() {
         http.get('/turn').then(response => {
             turnCount.value = response.data.turns
-            document.title = "Scrabble (" + turnCount.value + ")"
+            let t = "Scrabble"
+            if (turnCount.value > 0) t = "(" + turnCount.value + ") " + t
+            document.title = t
         })
         .catch(error => {
-            const msg = (error.data && error.data.detail) || error.statusText;
-            throw new Error(msg);
+            const msg = (error.data && error.data.detail) || error.statusText
+            console.log(error)
+            throw new Error(msg)
         });
     }
+
+    refreshProfile()
     refreshTurnCount()
     let interval
     onMounted(() => {

@@ -8,7 +8,7 @@
 
 <script setup>
 import { http } from '@/helpers/api.js';
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, inject } from 'vue'
 import { router } from '@/helpers/router.js';
 const users = ref()
 
@@ -21,9 +21,10 @@ onMounted(() => {
         throw new Error(msg);
     })
 })
-
+const turns = inject('turns')
 function newGame(other_user) {
     http.post('/game', { opponent: other_user }).then(response => {
+        turns.refresh()
         router.push(`/game/${response.data.id}`)
     })
     .catch(error => {

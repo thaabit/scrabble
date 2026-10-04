@@ -208,8 +208,8 @@
         <template v-for="play in playedWords">
         <div :class="{ 'invalid-word': invalidWords.includes(play[0]) }">{{play[0]}}</div><div>{{play[1]}}</div>
         </template>
-        <div v-if="isBingo">!!BINGO!!</div><div v-if="isBingo">+50</div>
-        <div></div><div><hr>{{ playScore }}</div>
+        <div v-if="isBingo" class="bingo">BINGO</div><div v-if="isBingo">+50</div>
+        <div class="total">Total</div><div class="total">{{ playScore }}</div>
     </div>
 
     </div> <!-- column 3 -->
@@ -267,8 +267,7 @@
     const curGame = ref(false)
     const lastMove = ref(null)
     const isBingo = ref(false)
-    const turnCount = inject('turnCount')
-    const refreshTurnCount = inject('refreshTurnCount')
+    const turn = inject('turn')
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
     let otherKeydown = false
@@ -655,8 +654,7 @@
         }
         if (data) body.data = data
         http.post('/move', body).then(response => {
-            initializeGame()
-            refreshTurnCount()
+            router.push(`/games`)
         })
     }
 
