@@ -880,6 +880,7 @@
         let openCols = openTrayCols()
         playerTiles.value.forEach(tile => recallTile(tile))
         scorePlay()
+        setKeyboard()
     }
 
     function shuffleTray() {
