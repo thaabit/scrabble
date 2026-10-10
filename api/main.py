@@ -113,6 +113,7 @@ def read_game(id: int, auth_username: str = Depends(get_authed_username)):
             "moves":        list(reversed(game.moves_with_tally(auth_username))),
             "scores":       game.scores(),
             "opponent":     game.opponent(auth_username),
+            "avatar":       get_user(game.opponent(auth_username)).avatar,
             "whose_turn":   game.whose_turn(),
             "game_over":    game.game_over(),
             "unseen": {
@@ -146,7 +147,12 @@ def list_games(type: str = 'active', auth_username: str = Depends(get_authed_use
     with Session(engine) as session:
         try:
             out = []
-            sql = f'SELECT g.id, gu.tray, gu.ack_end FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un'
+            sql = f"""
+                SELECT g.id, gu.tray, gu.ack_end
+                  FROM game_user gu
+                  JOIN game g ON g.id = gu.game_id
+                 WHERE gu.username = :un
+                   """
             if type == 'active':
                 sql += " AND g.finished='0000-00-00 00:00:00'"
             elif type == 'inactive':
@@ -165,6 +171,7 @@ def list_games(type: str = 'active', auth_username: str = Depends(get_authed_use
                     "finished":      game.game_over(),
                     "finished_date": game.pretty_finished_date(),
                     "opponent":      game.opponent(auth_username),
+                    "avatar":        get_user(game.opponent(auth_username)).avatar,
                 })
             out = sorted(out, key=lambda x: -1 if x['whose_turn'] == auth_username else 1 )
             return out

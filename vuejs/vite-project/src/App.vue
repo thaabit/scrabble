@@ -1,6 +1,7 @@
 <template>
 <div id="top">
     <template v-if="isAuthenticated">
+    <span><button v-if="nextGameAvailable" @click="nextGame">Next Game</button></span>
     <span>
     <RouterLink to="/games" @click.native.prevent="refreshAll">Games <span v-if="turnCount">({{turnCount}})</span></RouterLink>
     | <RouterLink to="/archive">Archive</RouterLink>
@@ -30,16 +31,24 @@
     import { router } from '@/helpers/router.js'
     import { storeToRefs } from 'pinia'
     import { useAuthStore } from '@/stores/auth.store.js'
-    import { ref, provide, inject, onMounted, onUnmounted } from 'vue'
+    import { ref, provide, inject, onMounted, onUnmounted, computed } from 'vue'
+    import { useRoute } from 'vue-router'
     import { http } from '@/helpers/api.js';
+    import default_avatar from '@/assets/default_avatar.png'
+    provide('default_avatar', default_avatar)
 
     const authStore = useAuthStore();
+    const route = useRoute()
     const { isAuthenticated } = storeToRefs(authStore)
 
     const turnCount = ref(0)
+    const turnIds = ref([])
     provide('turns', {
+        ids: turnIds,
         count: turnCount,
         refresh: refreshTurnCount,
+        next: nextGame,
+        change: changeGame,
     })
 
     const curUsername = ref('')
@@ -81,7 +90,7 @@
     function refreshProfile() {
         http.get('/profile').then(response => {
             if (response.data.avatar) response.data.avatar = '/' + response.data.avatar + "?t=" + Date.now()
-            else response.data.avatar = '/public/default_avatar.png'
+            else response.data.avatar = default_avatar
             curAvatar.value = response.data.avatar
             curUsername.value = response.data.username
             curName.value = response.data.name
@@ -96,9 +105,11 @@
         refreshTurnCount()
         refreshGameList()
     }
+
     function refreshTurnCount() {
         http.get('/turn').then(response => {
-            turnCount.value = response.data.turns
+            turnIds.value = response.data.turns
+            turnCount.value = response.data.turns.length
             let t = "Scrabble"
             if (turnCount.value > 0) t = "(" + turnCount.value + ") " + t
             document.title = t
@@ -108,6 +119,31 @@
             console.log(error)
             throw new Error(msg)
         });
+    }
+
+    function changeGame(id) {
+        router.push(`/game/${id}`)
+    }
+
+    const nextGameAvailable = computed(() =>  {
+        if (turnCount.value < 1) return false
+        const cur_id = Number(route?.params.id || 0)
+        if (!cur_id) return false
+        if (turnCount.value === 1 && cur_id === turnIds.value[0]) return false
+        return true
+    })
+
+    function nextGame() {
+        let idx = 0
+        const cur_id = Number(route?.params.id || 0)
+        if (cur_id) {
+            idx = turnIds.value.indexOf(cur_id) + 1
+            if (idx >= turnIds.value.length) idx = 0
+        }
+
+        let id = turnIds.value[idx]
+        console.log(id, idx, cur_id)
+        if (id) changeGame(id)
     }
 
     refreshProfile()

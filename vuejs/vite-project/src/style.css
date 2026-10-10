@@ -14,10 +14,13 @@
     top:0;
     display:grid;
     font-size:larger;
-    grid-template-columns: 3fr 1fr;
+    grid-template-columns: 1fr 3fr 1fr;
 }
 #top a {
     color: #ccc;
+}
+#top button {
+    font-size:larger;
 }
 #top:first-child {
     justify-self: start;

@@ -4,9 +4,17 @@
         <div v-if="curGame?.finished" class="error">GAME OVER MAN</div>
 
         <div v-if="curGame" class="cur-game">
-            <div :class="['you', myTurn ? 'current' : '']">{{authUsername}}</div>
+            <div :class="['you', myTurn ? 'current' : '']">
+            <img v-if="profile.avatar" :src="profile.avatar.value" style="width:50px;">
+            <img v-else :src="default_avatar" style="width:50px;background:#000;">
+            {{ authUsername }}
+            </div>
             <div class="score">{{curGame.scores[authUsername]}}</div>
-            <div :class="['other', (!myTurn) ? 'current' : '']" >{{curGame.opponent}}</div>
+            <div :class="['other', (!myTurn) ? 'current' : '']" >
+                <img v-if="curGame.avatar" :src="'/' + curGame.avatar" style="width:50px;">
+                <img v-else :src="default_avatar" style="width:50px;background:#000;">
+                {{curGame.opponent}}
+            </div>
             <div class="score">{{curGame.scores[curGame.opponent]}}</div>
         </div>
 
@@ -38,10 +46,19 @@
         <!-- moves -->
         <div v-if="curGame.moves" class="moves hide-mobile box">
         <div v-for="(move) in curGame.moves" :class="['move', move.username===authUsername ? 'you' : '']">
-            <div>{{ move.username }}</div>
+            <div>
+                <span v-if="move.username===authUsername">
+                    <img v-if="profile.avatar" :src="profile.avatar.value" style="width:30px;">
+                    <img v-else :src="default_avatar" style="width:30px;background:#000;">
+                </span>
+                <span v-else>
+                    <img v-if="curGame.avatar" :src="'/' + curGame.avatar" style="width:30px;">
+                    <img v-else :src="default_avatar" style="width:30px;background:#000;">
+                </span>
+            </div>
             <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
             <div>{{ move.tally }} {{move.score > 0 ? '+' : ''}} {{ move.score }}</div>
-            <div></div>
+            <div>{{ move.username }}</div>
             <div>{{move.rack}}</div>
             <div>{{ move.tally + move.score }}</div>
         </div>
@@ -72,10 +89,19 @@
         <!-- moves -->
         <div v-if="curGame.moves" class="moves">
         <div v-for="(move) in curGame.moves" :class="['move', move.username===authUsername ? 'you' : '']">
-            <div>{{ move.username }}</div>
+            <div>
+                <span v-if="move.username===authUsername">
+                    <img v-if="profile.avatar" :src="profile.avatar.value" style="width:30px;">
+                    <img v-else :src="default_avatar" style="width:30px;background:#000;">
+                </span>
+                <span v-else>
+                    <img v-if="curGame.avatar" :src="'/' + curGame.avatar" style="width:30px;">
+                    <img v-else :src="default_avatar" style="width:30px;background:#000;">
+                </span>
+            </div>
             <div class="{{move.type}}">{{ move.main_word || move.exchange || move.type.toUpperCase() }}</div>
             <div>{{ move.tally }} {{move.score > 0 ? '+' : ''}} {{ move.score }}</div>
-            <div></div>
+            <div>{{ move.username }}</div>
             <div>{{move.rack}}</div>
             <div>{{ move.tally + move.score }}</div>
         </div>
@@ -267,7 +293,9 @@
     const curGame = ref(false)
     const lastMove = ref(null)
     const isBingo = ref(false)
-    const turn = inject('turn')
+    const turns = inject('turns')
+    const profile = inject('profile')
+    const default_avatar = inject('default_avatar')
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
     let otherKeydown = false
@@ -654,7 +682,8 @@
         }
         if (data) body.data = data
         http.post('/move', body).then(response => {
-            router.push(`/games`)
+            turns.refresh()
+            refreshGame()
         })
     }
 

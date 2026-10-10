@@ -20,9 +20,15 @@ class User(UserBase, table=True):
     username: str
 
     def turn_count(self, session):
-        sql = f"SELECT g.id, gu.tray, gu.ack_end FROM game_user gu JOIN game g ON g.id = gu.game_id WHERE gu.username = :un AND g.finished='0000-00-00 00:00:00'"
-        games = session.execute(text(sql), params={"un": self.username}).fetchall()
-        turns = len([game for game in games if session.get(Game, game[0]).whose_turn() == self.username])
+        sql = f"""
+            SELECT g.id, gu.tray, gu.ack_end
+              FROM game_user gu
+              JOIN game g ON g.id = gu.game_id
+             WHERE gu.username = :un
+               AND g.finished='0000-00-00 00:00:00'
+               """
+        games = session.execute(text(sql), params={"un": self.username}).mappings().all()
+        turns = [game['id'] for game in games if session.get(Game, game['id']).whose_turn() == self.username]
         return turns
 
 class UserCreate(UserBase):

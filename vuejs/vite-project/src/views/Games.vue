@@ -1,26 +1,38 @@
 <template>
 <div class="title">Active Games</div>
 <div v-for="(game) in games.active.value"
-    @click="changeGame(game.id)"
+    @click="turns.change(game.id)"
     class="game clickable"
 >
     <div :class="[game.my_turn ? 'current' : '']">
+        <img v-if="profile.avatar" :src="profile.avatar.value" style="width:50px;">
+        <img v-else :src="default_avatar" style="width:50px;background:#000;">
         {{ curUsername }} {{ game.scores[curUsername] }}
     </div>
     <div :class="[!game.my_turn ? 'current' : '']">
+        <img v-if="game.avatar" :src="game.avatar" style="width:50px;">
+        <img v-else :src="default_avatar" style="width:50px;background:#000;">
         {{ game.opponent }} {{ game.scores[game.opponent] }}
     </div>
-    <div class="center"><button @click="changeGame(game.id)">Go</button></div>
+    <div class="center"><button @click="turns.change(game.id)">Go</button></div>
 </div>
 
 <!--unacknowledged finished games-->
 <div class="title" v-if="games.finished.value.length && games.finished.value.length > 0">Finished Games</div>
 <div v-for="(game) in games.finished.value"
-     @click="changeGame(game.id)"
+     @click="turns.change(game.id)"
      class="game clickable"
 >
-    <div :class="[game.winner===curUsername ? 'winner' : '']">{{curUsername}} {{ game.scores[curUsername] }}</div>
-    <div :class="[game.winner===game.opponent ? 'winner' : '']">{{ game.opponent }} {{ game.scores[game.opponent] }}</div>
+    <div :class="[game.winner===curUsername ? 'winner' : '']">
+        <img v-if="profile.avatar" :src="profile.avatar.value" style="width:50px;">
+        <img v-else :src="default_avatar" style="width:50px;background:#000;">
+        {{curUsername}} {{ game.scores[curUsername] }}
+    </div>
+    <div :class="[game.winner===game.opponent ? 'winner' : '']">
+        <img v-if="game.avatar" :src="game.avatar" style="width:50px;">
+        <img v-else :src="default_avatar" style="width:50px;background:#000;">
+        {{ game.opponent }} {{ game.scores[game.opponent] }}
+    </div>
     <div><button @click.stop="acknowledge_game(game.id)">Dismiss</button></div>
 </div>
 </template>
@@ -33,6 +45,7 @@ import { router } from '@/helpers/router.js'
 
 const curUsername = useAuthStore().authedUser
 const games = inject('games')
+const profile = inject('profile')
 
 function acknowledge_game(game_id) {
     http.patch('/game/acknowledge/' + game_id).then(response => {
@@ -40,11 +53,8 @@ function acknowledge_game(game_id) {
     })
 }
 
-function changeGame(id) {
-    router.push(`/game/${id}`)
-}
-
 const turns = inject('turns')
+const default_avatar = inject('default_avatar')
 onMounted(() => {
     games.refresh()
     turns.refresh()
